@@ -1,0 +1,9 @@
+@baseUrl = http://localhost:5000
+
+### auth-api service root
+GET {baseUrl}/
+Accept: application/json
+
+### auth-api health check
+GET {baseUrl}/health
+Accept: text/plain
