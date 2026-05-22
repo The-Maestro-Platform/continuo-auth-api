@@ -46,6 +46,11 @@ public static class PermissionKeys {
         public const string RolesManage = "ops.roles.manage";
         // Doküman İzleme (tenant + platform DMS items) — continuo-ops-ui yeni modülü.
         public const string DocsView = "ops.docs.view";
+
+        // Maestro per-tenant management — continuo-ops-ui MaestroTenantManagementPanel.
+        // CRUD on tenant policies (quota/personality/allowed models) + role overrides.
+        // See docs/todo/MAESTRO_TENANT_MANAGEMENT_PLAN.md.
+        public const string MaestroTenantsManage = "ops.maestro.tenants.manage";
     }
 
     public static class Tenant {
@@ -107,5 +112,12 @@ public static class PermissionKeys {
         public const string TablesManage = "tenant.tables.manage";
         public const string VisionEdgeView = "tenant.vision.edge.view";
         public const string VisionEdgeManage = "tenant.vision.edge.manage";
+
+        // Maestro AI per-tenant usage. `MaestroUse` controls the floating-button
+        // visibility + chat access; quota/personality enforced server-side by
+        // mae.MaestroTenantPolicy (managed via continuo-ops-ui by Ops.MaestroTenantsManage).
+        public const string MaestroUse = "tenant.maestro.use";
+        public const string MaestroContextAuthor = "tenant.maestro.context.author";
+        public const string MaestroPlaybookAuthor = "tenant.maestro.playbook.author";
     }
 }

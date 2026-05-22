@@ -29,7 +29,10 @@ public static class AuthSeeder {
                 "platform.auth.users.view",
                 "platform.auth.users.manage",
                 "platform.auth.screens.manage",
-                "platform.auth.roles.manage"
+                "platform.auth.roles.manage",
+                // continuo-ops-ui MaestroTenantManagementPanel: configure per-tenant
+                // Maestro quota, persona and allowed models.
+                "ops.maestro.tenants.manage"
             }),
         new("PlatformSupport", "Support and logging access", RoleScope.Platform,
             new[] { "platform.logs.view", "platform.support.impersonate", "platform.auth.users.view" }),
@@ -83,7 +86,10 @@ public static class AuthSeeder {
                 "tenant.notifications.view", "tenant.notifications.manage",
                 "tenant.notifications.dispatch", "tenant.notifications.retry",
                 "tenant.notifications.channels.manage",
-                "tenant.vision.edge.view", "tenant.vision.edge.manage"
+                "tenant.vision.edge.view", "tenant.vision.edge.manage",
+                // Maestro AI — tenant admins can use the assistant + author contexts/playbooks
+                // for their own tenant. Quota enforced server-side by mae.MaestroTenantPolicy.
+                "tenant.maestro.use", "tenant.maestro.context.author", "tenant.maestro.playbook.author"
             }),
         new("OperationManager", "Operations lead", RoleScope.Tenant,
             new[] {

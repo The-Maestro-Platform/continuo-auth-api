@@ -42,7 +42,8 @@ public static class PermissionCatalog {
         new(PermissionKeys.Ops.ParametersWrite, "Manage Parameters", "Create or update platform parameters in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.PublicWebManage, "Manage Public Web API Content", "Manage public web content copy and sections in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.RolesManage, "Manage Ops Roles", "Manage role/screen mappings in Ops UI.", RoleScope.Platform),
-        new(PermissionKeys.Ops.DocsView, "View Documents", "Browse tenant and platform documents (DMS) in Ops UI.", RoleScope.Platform)
+        new(PermissionKeys.Ops.DocsView, "View Documents", "Browse tenant and platform documents (DMS) in Ops UI.", RoleScope.Platform),
+        new(PermissionKeys.Ops.MaestroTenantsManage, "Manage Maestro Tenants", "Configure per-tenant Maestro AI policies: usage capacity, daily/monthly USD cap, token cap, allowed providers, role-scoped overrides and personality presets.", RoleScope.Platform)
     };
 
     private static readonly PermissionDefinition[] TenantOnly =
@@ -106,7 +107,12 @@ public static class PermissionCatalog {
         new(PermissionKeys.Tenant.TablesManage, "Manage Tables", "Configure table layout and assignments.", RoleScope.Tenant),
         // Vision / Edge
         new(PermissionKeys.Tenant.VisionEdgeView, "View Vision Edge", "View camera panels and occupancy streams for branch edge devices.", RoleScope.Tenant),
-        new(PermissionKeys.Tenant.VisionEdgeManage, "Manage Vision Edge", "Configure edge connection, camera list and stream method.", RoleScope.Tenant)
+        new(PermissionKeys.Tenant.VisionEdgeManage, "Manage Vision Edge", "Configure edge connection, camera list and stream method.", RoleScope.Tenant),
+
+        // Maestro AI (tenant audience — floating button + chat in console-admin/tenant apps).
+        new(PermissionKeys.Tenant.MaestroUse, "Use Maestro AI", "Open the Maestro chat assistant (floating button + drawer) inside tenant applications. Quota and persona enforced server-side per tenant policy.", RoleScope.Tenant),
+        new(PermissionKeys.Tenant.MaestroContextAuthor, "Author Maestro Contexts", "Create reusable Maestro contexts (knowledge sources) scoped to the tenant.", RoleScope.Tenant),
+        new(PermissionKeys.Tenant.MaestroPlaybookAuthor, "Author Maestro Playbooks", "Create and version Maestro playbooks scoped to the tenant.", RoleScope.Tenant)
     };
 
     public static readonly PermissionDefinition[] All = PlatformOnly.Concat(TenantOnly).ToArray();
