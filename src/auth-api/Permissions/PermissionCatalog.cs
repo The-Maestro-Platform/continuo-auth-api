@@ -43,7 +43,13 @@ public static class PermissionCatalog {
         new(PermissionKeys.Ops.PublicWebManage, "Manage Public Web API Content", "Manage public web content copy and sections in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.RolesManage, "Manage Ops Roles", "Manage role/screen mappings in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.DocsView, "View Documents", "Browse tenant and platform documents (DMS) in Ops UI.", RoleScope.Platform),
-        new(PermissionKeys.Ops.MaestroTenantsManage, "Manage Maestro Tenants", "Configure per-tenant Maestro AI policies: usage capacity, daily/monthly USD cap, token cap, allowed providers, role-scoped overrides and personality presets.", RoleScope.Platform)
+        new(PermissionKeys.Ops.MaestroTenantsManage, "Manage Maestro Tenants", "Configure per-tenant Maestro AI policies: usage capacity, daily/monthly USD cap, token cap, allowed providers, role-scoped overrides and personality presets.", RoleScope.Platform),
+
+        // Platform branding/identity runtime config — backs the Platform
+        // Ayarları page in maestro-console. Edit brand name, assistant name,
+        // domain hint (LLM system prompt context), GitHub repo default,
+        // User-Agent, theme accent color, and logo URL without code change.
+        new(PermissionKeys.Platform.SettingsManage, "Manage Platform Settings", "Edit runtime branding/identity surface: brand name, assistant name, domain hint, GitHub repo default, User-Agent, theme accent color, logo URL.", RoleScope.Platform)
     };
 
     private static readonly PermissionDefinition[] TenantOnly =
@@ -112,7 +118,12 @@ public static class PermissionCatalog {
         // Maestro AI (tenant audience — floating button + chat in console-admin/tenant apps).
         new(PermissionKeys.Tenant.MaestroUse, "Use Maestro AI", "Open the Maestro chat assistant (floating button + drawer) inside tenant applications. Quota and persona enforced server-side per tenant policy.", RoleScope.Tenant),
         new(PermissionKeys.Tenant.MaestroContextAuthor, "Author Maestro Contexts", "Create reusable Maestro contexts (knowledge sources) scoped to the tenant.", RoleScope.Tenant),
-        new(PermissionKeys.Tenant.MaestroPlaybookAuthor, "Author Maestro Playbooks", "Create and version Maestro playbooks scoped to the tenant.", RoleScope.Tenant)
+        new(PermissionKeys.Tenant.MaestroPlaybookAuthor, "Author Maestro Playbooks", "Create and version Maestro playbooks scoped to the tenant.", RoleScope.Tenant),
+
+        // Tenant-scope overrides of platform branding (brand name, assistant
+        // name, domain hint, theme accent color, logo URL). GitHub repo and
+        // User-Agent stay platform-only.
+        new(PermissionKeys.Tenant.SettingsManage, "Manage Tenant Branding", "Override the platform branding surface for this tenant: brand name, assistant name, domain hint, theme accent color, logo URL.", RoleScope.Tenant)
     };
 
     public static readonly PermissionDefinition[] All = PlatformOnly.Concat(TenantOnly).ToArray();

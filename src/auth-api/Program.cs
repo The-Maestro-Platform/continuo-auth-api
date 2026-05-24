@@ -81,6 +81,7 @@ builder.Services.AddScoped<AuthApi.Services.CommunicationService>();
 builder.Services.AddScoped<AuthApi.Services.PermissionsService>();
 builder.Services.AddScoped<IScreenAccessService, ScreenAccessService>();
 builder.Services.AddScoped<AuthApi.Services.NavigationService>();
+builder.Services.AddScoped<AuthApi.Services.PlatformSettings.IPlatformSettingsService, AuthApi.Services.PlatformSettings.PlatformSettingsService>();
 builder.Services.Configure<TwoFactorOptions>(builder.Configuration.GetSection("TwoFactor"));
 builder.Services.AddScoped<TwoFactorService>();
 builder.Services.AddScoped<ITrustedDeviceService, TrustedDeviceService>();

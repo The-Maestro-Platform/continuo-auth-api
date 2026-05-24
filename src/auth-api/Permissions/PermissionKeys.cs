@@ -35,6 +35,10 @@ public static class PermissionKeys {
         public const string PortalEnvDev = "platform.portal.env.dev";
         public const string PortalEnvStaging = "platform.portal.env.staging";
         public const string PortalEnvProd = "platform.portal.env.prod";
+
+        // Platform branding/identity runtime config — backs the Platform
+        // Ayarları page in maestro-console. See docs/PLATFORM_SETTINGS_PLAN.md.
+        public const string SettingsManage = "platform.settings.manage";
     }
 
     public static class Ops {
@@ -119,5 +123,10 @@ public static class PermissionKeys {
         public const string MaestroUse = "tenant.maestro.use";
         public const string MaestroContextAuthor = "tenant.maestro.context.author";
         public const string MaestroPlaybookAuthor = "tenant.maestro.playbook.author";
+
+        // Tenant-scope overrides of platform branding (brand/assistant/domain
+        // hint/theme/logo). GitHub repo and User-Agent stay platform-only.
+        // See docs/PLATFORM_SETTINGS_PLAN.md.
+        public const string SettingsManage = "tenant.settings.manage";
     }
 }
