@@ -20,8 +20,8 @@ public sealed class PasswordResetService {
     private const int TokenTtlMinutes = 30;
     private const int MaxAttempts = 5;
     private static readonly HashSet<string> PlatformOnlyApps = new(StringComparer.OrdinalIgnoreCase) {
-        "continuo-ops-ui",
-        "maestro-console",
+        "tc-ops-ui",
+        "dev-support-console",
         "tcc-ops-ui",
         "tcc-ui"
     };
@@ -56,8 +56,16 @@ public sealed class PasswordResetService {
 
         var origin = NormalizeOrigin(context.Origin);
         var resetPath = NormalizeResetPath(context.ResetPath);
+        if (resetPath != null && !IsResetPathAllowedForApp(normalizedAppId, resetPath)) {
+            resetPath = null;
+        }
         if (origin == null || resetPath == null) {
-            _logger.LogWarning("Password reset skipped for credential {CredentialId}: invalid origin or reset path", credential.Id);
+            _logger.LogWarning(
+                "Password reset skipped for credential {CredentialId}: invalid origin or reset path. app={AppId} originHost={OriginHost} resetPathPresent={ResetPathPresent}",
+                credential.Id,
+                normalizedAppId,
+                TryResolveHost(context.Origin),
+                !string.IsNullOrWhiteSpace(context.ResetPath));
             await UniformDelayAsync(ct);
             return;
         }
@@ -312,10 +320,51 @@ public sealed class PasswordResetService {
         if (path.Length == 0 || path[0] != '/' || path.StartsWith("//", StringComparison.Ordinal)) {
             return null;
         }
-        if (Uri.TryCreate(path, UriKind.Absolute, out _)) {
+        return path.Length > 256 ? null : path;
+    }
+
+    private static bool IsResetPathAllowedForApp(string appId, string resetPath) {
+        if (string.IsNullOrWhiteSpace(resetPath)) {
+            return false;
+        }
+
+        if (PlatformOnlyApps.Contains(appId)) {
+            return appId switch {
+                "dev-support-console" => string.Equals(resetPath, "/devops/reset-password", StringComparison.Ordinal),
+                "tc-ops-ui" => string.Equals(resetPath, "/ops/reset-password", StringComparison.Ordinal),
+                "tcc-ops-ui" or "tcc-ui" => string.Equals(resetPath, "/tcc/reset-password", StringComparison.Ordinal),
+                _ => false
+            };
+        }
+
+        if (string.Equals(appId, "console-admin", StringComparison.OrdinalIgnoreCase)) {
+            return string.Equals(resetPath, "/admin/reset-password", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(appId, "qrmenu-mobile", StringComparison.OrdinalIgnoreCase)) {
+            return string.Equals(resetPath, "/m/reset-password", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(appId, "qrmenu-web", StringComparison.OrdinalIgnoreCase)) {
+            return resetPath.StartsWith("/menu/", StringComparison.Ordinal)
+                && resetPath.EndsWith("/reset-password", StringComparison.Ordinal)
+                && !resetPath.Contains("//", StringComparison.Ordinal);
+        }
+
+        if (string.Equals(appId, "public-web", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(appId, "continuo-web", StringComparison.OrdinalIgnoreCase)) {
+            return string.Equals(resetPath, "/web/reset-password", StringComparison.Ordinal);
+        }
+
+        return false;
+    }
+
+    private static string? TryResolveHost(string? origin) {
+        if (string.IsNullOrWhiteSpace(origin) || !Uri.TryCreate(origin.Trim(), UriKind.Absolute, out var uri)) {
             return null;
         }
-        return path.Length > 256 ? null : path;
+
+        return uri.Host;
     }
 
     private static string? ResolveTenantKey(Tenant? tenant) {

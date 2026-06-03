@@ -40,6 +40,16 @@ public class ScreenAccessService : IScreenAccessService {
         }
 
         var explicitScreens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var permissionlessScreens = await screenQuery
+            .Where(s => string.IsNullOrWhiteSpace(s.RequiredPermissionsJson) || s.RequiredPermissionsJson == "[]")
+            .Select(s => s.ScreenKey)
+            .ToListAsync(ct);
+
+        foreach (var key in permissionlessScreens) {
+            explicitScreens.Add(key);
+        }
+
         if (credential.OwnerType == CredentialOwnerType.PlatformUser && credential.PlatformUserId.HasValue) {
             var platformId = credential.PlatformUserId.Value;
             var now = DateTime.UtcNow;

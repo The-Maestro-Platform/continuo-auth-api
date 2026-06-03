@@ -131,20 +131,34 @@ public class TokenService : ITokenService {
 
         var written = new JwtSecurityTokenHandler().WriteToken(token);
         var sizeBytes = Encoding.UTF8.GetByteCount(written);
-        if (sizeBytes > CookieValueLimitBytes) {
+        // 2026-05-25: 2026-05-24'te opaque session token transition'ından sonra
+        // bu JWT artık browser cookie'sine GİTMİYOR — BFF (`ui/packages/bff/src/auth.ts`)
+        // cookie'ye opaque sessionToken (~43 char) koyuyor. JWT sadece response
+        // body'de ve BFF↔downstream Authorization: Bearer header'ında taşınıyor.
+        //
+        // Eski uyarı ("Set-Cookie sessizce reddedilecek, login loop ihtimali")
+        // misleading idi — operatör login loop sandı ama login flow çalışıyordu
+        // (mert.cengiz 2026-05-25 incident). Yeni uyarı sadece header overhead'i
+        // için: çoğu proxy chain'i 8 KB header buffer ile çalışır; üzerine
+        // çıkmak inter-service çağrılarda risk yaratır.
+        if (sizeBytes > 8192) {
             _logger.LogError(
-                "JWT token {Size} byte üretildi, browser cookie limiti {Limit} byte aşıldı. " +
-                "Kullanıcı={Login} permissionCount={PermCount} screenCount={ScreenCount} " +
-                "branchCount={BranchCount}. Set-Cookie sessizce reddedilecek, login loop ihtimali.",
+                "JWT token {Size} byte üretildi, 8 KB inter-service header soft-limit aşıldı. " +
+                "Kullanıcı={Login} permissionCount={PermCount} screenCount={ScreenCount} branchCount={BranchCount}. " +
+                "Cookie etkilenmez (opaque sessionToken kullanılıyor) — risk: proxy header truncation.",
+                sizeBytes, credential.Login, permissions.Count(), screens.Count(), branchCodes?.Count() ?? 0);
+        }
+        else if (sizeBytes > CookieValueLimitBytes) {
+            _logger.LogInformation(
+                "JWT token {Size} byte (cookie limiti {Limit} byte'ı aşıyor ama opaque sessionToken kullanıldığı için cookie etkilenmez). " +
+                "Kullanıcı={Login} permissionCount={PermCount} screenCount={ScreenCount} branchCount={BranchCount}.",
                 sizeBytes, CookieValueLimitBytes, credential.Login,
                 permissions.Count(), screens.Count(), branchCodes?.Count() ?? 0);
         }
         else if (sizeBytes > CookieValueWarnBytes) {
-            _logger.LogWarning(
-                "JWT token {Size} byte — cookie limiti {Limit} byte'a yaklaşıyor (kalan buffer {Buffer} byte). " +
-                "Kullanıcı={Login} permissionCount={PermCount} screenCount={ScreenCount}.",
-                sizeBytes, CookieValueLimitBytes, CookieValueLimitBytes - sizeBytes,
-                credential.Login, permissions.Count(), screens.Count());
+            _logger.LogDebug(
+                "JWT token {Size} byte — Kullanıcı={Login} permissionCount={PermCount} screenCount={ScreenCount}.",
+                sizeBytes, credential.Login, permissions.Count(), screens.Count());
         }
         return Task.FromResult((written, expires));
     }

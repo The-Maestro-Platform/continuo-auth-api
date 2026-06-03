@@ -19,7 +19,7 @@ namespace AuthApi.Controllers;
 [Route("auth/portal")]
 public class PortalController : ControllerBase {
     private static readonly HashSet<string> AllowedUis = new(StringComparer.OrdinalIgnoreCase) {
-        "console-admin", "continuo-ops-ui", "maestro-console", "qrmenu-web", "continuo-web"
+        "console-admin", "tc-ops-ui", "dev-support-console", "qrmenu-web", "continuo-web"
     };
 
     private static readonly HashSet<string> AllowedEnvs = new(StringComparer.OrdinalIgnoreCase) {
@@ -30,13 +30,43 @@ public class PortalController : ControllerBase {
     private readonly ITokenService _tokens;
     private readonly IConfiguration _config;
     private readonly IScreenAccessService _screens;
+    private readonly ISessionService _sessions;
 
-    public PortalController(AuthDbContext db, ITokenService tokens, IConfiguration config, IScreenAccessService screens) {
+    public PortalController(
+        AuthDbContext db,
+        ITokenService tokens,
+        IConfiguration config,
+        IScreenAccessService screens,
+        ISessionService sessions) {
         _db = db;
         _tokens = tokens;
         _config = config;
         _screens = screens;
+        _sessions = sessions;
     }
+
+    private string ResolveOwnerLogin() =>
+        (_config["AUTH:OWNER_LOGIN"]
+         ?? _config["AUTH__OWNER_LOGIN"]
+         ?? Environment.GetEnvironmentVariable("AUTH_OWNER_LOGIN")
+         ?? "platform.owner@example.local").Trim();
+
+    private bool IsPlatformOwner(Credential credential) {
+        var ownerLogin = ResolveOwnerLogin();
+        return string.Equals(credential.Login?.Trim(), ownerLogin, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(credential.Email?.Trim(), ownerLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string? ResolveClientIp() {
+        var fwd = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(fwd)) {
+            return fwd.Split(',')[0].Trim();
+        }
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
+    }
+
+    private string? ResolveUserAgent() =>
+        HttpContext.Request.Headers["User-Agent"].FirstOrDefault();
 
     public record IssueRequest(string TargetUiApp, string Environment, string? TenantSlug);
     public record ConsumeRequest(string Nonce);
@@ -150,12 +180,26 @@ public class PortalController : ControllerBase {
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var screens = await _screens.ResolveScreensAsync(credential, permissionKeys, roles, handoff.TargetUiApp, ct);
 
+        // 2026-05-24: portal handoff now mints the same opaque-session pair as
+        // /auth/login. The destination UI's route.ts writes only the opaque
+        // token into the browser cookie; the BFF exchanges it back to a JWT
+        // per request via /auth/session/exchange. accessToken stays in the
+        // response body for callers still on the legacy path (rolling deploy).
+        var (session, opaqueSessionToken) = await _sessions.CreateAsync(
+            credential.Id,
+            handoff.TargetUiApp,
+            exemptFromSingleSession: IsPlatformOwner(credential),
+            ResolveClientIp(),
+            ResolveUserAgent(),
+            ct);
+
         var (accessToken, accessExpires) = await _tokens.CreateAccessTokenAsync(
-            credential, roleNames, permissionKeys, screens, branchCodes: null, branchRoles: null);
+            credential, roleNames, permissionKeys, screens, branchCodes: null, branchRoles: null, sessionId: session.Id);
         var (refreshToken, refreshExpires) = await _tokens.CreateRefreshTokenAsync();
 
         return Ok(new {
             accessToken, accessExpires,
+            sessionToken = opaqueSessionToken,
             refreshToken, refreshExpires,
             credential = new {
                 id = credential.Id.ToString(),

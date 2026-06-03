@@ -4,6 +4,7 @@ using AuthApi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace authapi.Migrations
 {
     [DbContext(typeof(AuthDbContext))]
-    partial class AuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260524141220_AddSessionTokenHash")]
+    partial class AddSessionTokenHash
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -684,62 +687,6 @@ namespace authapi.Migrations
                         },
                         new
                         {
-                            Key = "platform.forex.manage",
-                            Description = "Adjust platform-wide FX margin (`forex.margin.default.pips`) and view TCMB rate history + change audit. Required for the console-admin `/admin/forex` Margin Settings tab.",
-                            DisplayName = "Manage Forex Margin",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.forex.refresh",
-                            Description = "Trigger an on-demand TCMB FX feed refresh (POST /internal/refresh on exchange-rate-api). Used by Tempo workflow + ops debug; service-internal callers use M2M instead.",
-                            DisplayName = "Trigger Forex Refresh",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.agreements.manage",
-                            Description = "Edit and version the platform-level legal agreements (KVKK Aydınlatma, Kullanım Koşulları, Pazarlama İzni) shown to customers at signup/login. tc-ops-ui Agreements panel + auth-api admin CRUD endpoints.",
-                            DisplayName = "Manage Legal Agreements",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.portal.access",
-                            Description = "Open the dev-support-console / developer portal landing and pick a target environment.",
-                            DisplayName = "Access Developer Portal",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.portal.env.dev",
-                            Description = "Enter the Dev environment from the developer portal.",
-                            DisplayName = "Portal: Dev Environment",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.portal.env.staging",
-                            Description = "Enter the Staging environment from the developer portal.",
-                            DisplayName = "Portal: Staging Environment",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "platform.portal.env.prod",
-                            Description = "Enter the Production environment from the developer portal — production access (restricted).",
-                            DisplayName = "Portal: Production Environment",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
                             Key = "ops.analytics.view",
                             Description = "Access tenant analytics and KPI reporting in Ops UI.",
                             DisplayName = "View Tenant Analytics",
@@ -799,30 +746,6 @@ namespace authapi.Migrations
                             Key = "ops.maestro.tenants.manage",
                             Description = "Configure per-tenant Maestro AI policies: usage capacity, daily/monthly USD cap, token cap, allowed providers, role-scoped overrides and personality presets.",
                             DisplayName = "Manage Maestro Tenants",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "ops.catalog.manage",
-                            Description = "Manage the modules / packages / discounts catalog, tenant entitlements and the provision-request approval queue in Ops UI.",
-                            DisplayName = "Manage Tenant Catalog",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "ops.billing.manage",
-                            Description = "Manage subscription invoices, IBAN reconciliation and tenant payment provider settings (IBAN / Iyzico) in Ops UI.",
-                            DisplayName = "Manage Platform Billing",
-                            Scope = 0,
-                            SortOrder = 0
-                        },
-                        new
-                        {
-                            Key = "ops.dashboard.platform.view",
-                            Description = "View the cross-tenant Platform Ops dashboard — fleet watchlist, MRR trend, module adoption, conversion funnel.",
-                            DisplayName = "View Platform Ops Dashboard",
                             Scope = 0,
                             SortOrder = 0
                         },
@@ -1257,132 +1180,6 @@ namespace authapi.Migrations
                             DisplayName = "Customer Maestro Wallet",
                             Scope = 1,
                             SortOrder = 0
-                        });
-                });
-
-            modelBuilder.Entity("AuthApi.Models.PlatformAgreement", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(26)
-                        .HasColumnType("nvarchar(26)");
-
-                    b.Property<string>("BodyMd")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<DateTime>("EffectiveFromUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasFilter("[IsActive] = 1");
-
-                    b.HasIndex("Code", "Version")
-                        .IsUnique();
-
-                    b.ToTable("PlatformAgreements", "aut");
-                });
-
-            modelBuilder.Entity("AuthApi.Models.PlatformIdentity", b =>
-                {
-                    b.Property<string>("RowKey")
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<string>("CompanyAddress")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("CompanyEmail")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("CompanyKep")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("CompanyLegalName")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("CompanyName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("CompanyPhone")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("CompanyWebsite")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("JurisdictionCity")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.HasKey("RowKey");
-
-                    b.ToTable("PlatformIdentities", "aut", t =>
-                        {
-                            t.HasCheckConstraint("CK_PlatformIdentities_SingleRow", "[RowKey] = 'current'");
                         });
                 });
 
@@ -2076,33 +1873,6 @@ namespace authapi.Migrations
                     b.HasIndex("CredentialId", "AppId", "RevokedAtUtc");
 
                     b.ToTable("UserSessions", "aut");
-                });
-
-            modelBuilder.Entity("Continuo.Persistence.Idempotency.InboxRecord", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(26)
-                        .HasColumnType("nvarchar(26)");
-
-                    b.Property<string>("ConsumerKey")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("MessageId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<DateTime>("ProcessedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConsumerKey", "MessageId")
-                        .IsUnique();
-
-                    b.ToTable("InboxRecords", "aut");
                 });
 
             modelBuilder.Entity("Continuo.Persistence.Outbox.OutboxMessage", b =>

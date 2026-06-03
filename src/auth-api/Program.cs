@@ -20,7 +20,12 @@ var builder = Bootstrap.CreateBuilder(args, serviceName);
 
 // Register persistence, messaging and other building-blocks
 builder.Services.AddContinuoPersistence(builder.Configuration, serviceName);
-builder.Services.AddContinuoMessaging(builder.Configuration, serviceName);
+builder.Services.AddContinuoMessaging(builder.Configuration, serviceName, x => {
+    x.AddConsumer<AuthApi.Consumers.TenantOwnerSeedRequestedConsumer>();
+    // V2 Wizard Phase F4 — auth-api direct seeder. Replaces the security-api
+    // alert-only path; security-api consumer stays as defense-in-depth.
+    x.AddConsumer<AuthApi.Consumers.DefaultRoleSeedRequestedConsumer>();
+});
 builder.Services.AddContinuoParameterStore(builder.Configuration);
 
 builder.Services.AddServiceDbContext<AuthDbContext>(builder.Configuration, serviceName);
@@ -72,6 +77,11 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<AuthApi.Services.RolesService>();
 builder.Services.AddScoped<AuthApi.Services.RoleService>();
+// V2 Wizard Phase F4 — direct DefaultRoleSeed consumer needs an inbox + seeder.
+builder.Services.AddScoped<Continuo.Persistence.Idempotency.IInboxStore,
+    Continuo.Persistence.Idempotency.EfInboxStore<AuthDbContext>>();
+builder.Services.AddScoped<AuthApi.Services.Wizard.IDefaultRoleSeederService,
+    AuthApi.Services.Wizard.DefaultRoleSeederService>();
 builder.Services.AddScoped<AuthApi.Services.TenantsService>();
 builder.Services.AddScoped<AuthApi.Services.CredentialsService>();
 builder.Services.AddScoped<AuthApi.Services.CustomersService>();
@@ -81,7 +91,12 @@ builder.Services.AddScoped<AuthApi.Services.CommunicationService>();
 builder.Services.AddScoped<AuthApi.Services.PermissionsService>();
 builder.Services.AddScoped<IScreenAccessService, ScreenAccessService>();
 builder.Services.AddScoped<AuthApi.Services.NavigationService>();
-builder.Services.AddScoped<AuthApi.Services.PlatformSettings.IPlatformSettingsService, AuthApi.Services.PlatformSettings.PlatformSettingsService>();
+builder.Services.AddScoped<AuthApi.Services.PlatformAgreementsService>();
+// PlatformIdentity — single-row company info that drives token resolution
+// inside agreement bodies. IMemoryCache is needed for the 5dk cache layer
+// (idempotent register — Bootstrap may already add it).
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<AuthApi.Services.PlatformIdentityService>();
 builder.Services.Configure<TwoFactorOptions>(builder.Configuration.GetSection("TwoFactor"));
 builder.Services.AddScoped<TwoFactorService>();
 builder.Services.AddScoped<ITrustedDeviceService, TrustedDeviceService>();
@@ -148,6 +163,73 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM [aut].[Permissions] p WHERE p.[Key] = v.[Key]);
 ");
 
+            // Platform-level legal agreements (KVKK / Kullanım Koşulları /
+            // Pazarlama). tc-ops-ui Agreements panel + mobile/web consent UI.
+            // Same idempotent DDL pattern — entity mapped in AuthDbContext,
+            // permanent migration to be generated in a follow-up pass.
+            await db.Database.ExecuteSqlRawAsync(@"
+IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'aut' AND TABLE_NAME = 'PlatformAgreements')
+BEGIN
+    CREATE TABLE [aut].[PlatformAgreements] (
+        [Id] nvarchar(26) NOT NULL,
+        [Code] nvarchar(40) NOT NULL,
+        [Title] nvarchar(200) NOT NULL,
+        [BodyMd] nvarchar(max) NOT NULL,
+        [Version] nvarchar(40) NOT NULL,
+        [EffectiveFromUtc] datetime2 NOT NULL,
+        [IsActive] bit NOT NULL,
+        [IsRequired] bit NOT NULL,
+        [SortOrder] int NOT NULL DEFAULT 0,
+        [CreatedAtUtc] datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [UpdatedAtUtc] datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [UpdatedBy] nvarchar(160) NULL,
+        CONSTRAINT [PK_PlatformAgreements] PRIMARY KEY ([Id])
+    );
+    -- Active sözleşme her Code için tek satır (terms / kvkk / marketing).
+    CREATE UNIQUE INDEX [IX_PlatformAgreements_Code_Active]
+        ON [aut].[PlatformAgreements] ([Code]) WHERE [IsActive] = 1;
+    CREATE UNIQUE INDEX [IX_PlatformAgreements_Code_Version]
+        ON [aut].[PlatformAgreements] ([Code], [Version]);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'aut' AND TABLE_NAME = 'PlatformIdentities')
+BEGIN
+    CREATE TABLE [aut].[PlatformIdentities] (
+        [RowKey] nvarchar(16) NOT NULL,
+        [CompanyName] nvarchar(200) NOT NULL,
+        [CompanyLegalName] nvarchar(300) NOT NULL,
+        [CompanyAddress] nvarchar(500) NOT NULL,
+        [CompanyEmail] nvarchar(200) NOT NULL,
+        [CompanyKep] nvarchar(200) NULL,
+        [CompanyPhone] nvarchar(50) NULL,
+        [CompanyWebsite] nvarchar(200) NULL,
+        [JurisdictionCity] nvarchar(120) NOT NULL,
+        [UpdatedAtUtc] datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [UpdatedBy] nvarchar(160) NULL,
+        CONSTRAINT [PK_PlatformIdentities] PRIMARY KEY ([RowKey]),
+        CONSTRAINT [CK_PlatformIdentities_SingleRow] CHECK ([RowKey] = 'current')
+    );
+END;
+
+-- Default identity row (idempotent — only if no row yet).
+IF NOT EXISTS (SELECT 1 FROM [aut].[PlatformIdentities] WHERE [RowKey] = 'current')
+BEGIN
+    INSERT INTO [aut].[PlatformIdentities]
+        ([RowKey], [CompanyName], [CompanyLegalName], [CompanyAddress], [CompanyEmail], [CompanyKep], [CompanyPhone], [CompanyWebsite], [JurisdictionCity], [UpdatedBy])
+    VALUES
+        (N'current',
+         N'Continuo',
+         N'Continuo Bilişim Hizmetleri A.Ş.',
+         N'(adres tc-ops-ui''dan doldurulacak)',
+         N'destek@example.local',
+         N'continuo@hs01.kep.tr',
+         N'+90 850 000 00 00',
+         N'www.example.local',
+         N'İstanbul (Çağlayan)',
+         N'system:seed');
+END;
+");
+
             // 2FA trusted-device + resend-tracking schema. Idempotent hot-fix
             // (same pattern as PortalHandoffs above). A permanent EF migration
             // should be generated via `dotnet ef migrations add` next pass; the
@@ -194,6 +276,18 @@ using (var scope = app.Services.CreateScope()) {
     }
     catch (Exception ex) {
         Console.WriteLine($"Error seeding auth data: {ex}");
+    }
+}
+
+// Platform agreements seed — idempotent, only plants defaults when no
+// active row exists for a Code; existing edits via tc-ops-ui survive.
+using (var scope = app.Services.CreateScope()) {
+    try {
+        var ctx = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+        await DefaultPlatformAgreements.SeedAsync(ctx);
+    }
+    catch (Exception ex) {
+        Console.WriteLine($"Error seeding platform agreements: {ex}");
     }
 }
 

@@ -16,7 +16,7 @@ public sealed class CustomerProjectionBackfillController(
     CustomerProjectionBackfillService backfill,
     IConfiguration configuration)
     : ControllerBase {
-    private static readonly string[] ManagementRoles = ["PlatformOwner", "PlatformAdmin"];
+    private static readonly PlatformRole[] ManagementRoles = [PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin];
     private static readonly string[] ManagementPermissions = [PermissionKeys.Platform.InfraManage];
 
     [HttpPost]

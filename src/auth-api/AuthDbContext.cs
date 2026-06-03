@@ -2,6 +2,7 @@ using AuthApi.Models;
 using AuthApi.Permissions;
 using Microsoft.EntityFrameworkCore;
 using Continuo.Persistence;
+using Continuo.Persistence.Idempotency;
 using Continuo.Shared.Security;
 
 namespace AuthApi;
@@ -43,9 +44,12 @@ public class AuthDbContext : ContinuoDbContext {
     public DbSet<ContactPhone> ContactPhones => Set<ContactPhone>();
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
     public DbSet<PortalHandoff> PortalHandoffs => Set<PortalHandoff>();
+    public DbSet<PlatformAgreement> PlatformAgreements => Set<PlatformAgreement>();
+    public DbSet<PlatformIdentity> PlatformIdentities => Set<PlatformIdentity>();
 
     protected override void OnModelCreating(ModelBuilder builder) {
         base.OnModelCreating(builder);
+        builder.ConfigureInboxRecord();
 
         builder.Entity<Tenant>(b => {
             b.HasKey(x => x.Id);
@@ -392,8 +396,17 @@ public class AuthDbContext : ContinuoDbContext {
             b.Property(x => x.RevokedReason).HasMaxLength(40);
             b.Property(x => x.IpAddress).HasMaxLength(64);
             b.Property(x => x.UserAgent).HasMaxLength(512);
+            b.Property(x => x.SessionTokenHash).HasMaxLength(128);
             b.HasOne(x => x.Credential).WithMany().HasForeignKey(x => x.CredentialId);
             b.HasIndex(x => new { x.CredentialId, x.AppId, x.RevokedAtUtc });
+            // Unique-when-set: opaque session token hash must be globally unique
+            // among live rows. Filter keeps NULLs (legacy rows + pre-issue rows)
+            // out of the uniqueness check while still enforcing it for opaque
+            // sessions.
+            b.HasIndex(x => x.SessionTokenHash)
+                .IsUnique()
+                .HasFilter("[SessionTokenHash] IS NOT NULL")
+                .HasDatabaseName("IX_UserSessions_SessionTokenHash");
         });
 
         builder.Entity<Screen>(b => {
@@ -474,6 +487,44 @@ public class AuthDbContext : ContinuoDbContext {
             b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
             b.HasOne(x => x.Credential).WithMany().HasForeignKey(x => x.CredentialId);
             b.HasIndex(x => new { x.Provider, x.ProviderUserId }).IsUnique();
+        });
+
+        builder.Entity<PlatformAgreement>(b => {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id)
+                .ValueGeneratedNever()
+                .HasConversion(v => v.ToString(), v => Ulid.Parse(v))
+                .HasMaxLength(26);
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.BodyMd).IsRequired();
+            b.Property(x => x.Version).HasMaxLength(40).IsRequired();
+            b.Property(x => x.UpdatedBy).HasMaxLength(160);
+            b.Property(x => x.CreatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+            b.Property(x => x.UpdatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+            // Aktif sözleşme her Code için tek satır (terms / kvkk / marketing).
+            // Pasif revizyonlar audit için kalır → filter ile out.
+            b.HasIndex(x => x.Code).IsUnique().HasFilter("[IsActive] = 1");
+            b.HasIndex(x => new { x.Code, x.Version }).IsUnique();
+        });
+
+        builder.Entity<PlatformIdentity>(b => {
+            b.HasKey(x => x.RowKey);
+            b.Property(x => x.RowKey).HasMaxLength(16);
+            b.Property(x => x.CompanyName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.CompanyLegalName).HasMaxLength(300).IsRequired();
+            b.Property(x => x.CompanyAddress).HasMaxLength(500).IsRequired();
+            b.Property(x => x.CompanyEmail).HasMaxLength(200).IsRequired();
+            b.Property(x => x.CompanyKep).HasMaxLength(200);
+            b.Property(x => x.CompanyPhone).HasMaxLength(50);
+            b.Property(x => x.CompanyWebsite).HasMaxLength(200);
+            b.Property(x => x.JurisdictionCity).HasMaxLength(120).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).HasDefaultValueSql("SYSUTCDATETIME()");
+            b.Property(x => x.UpdatedBy).HasMaxLength(160);
+            // Single-row constraint enforced at app + DB level: only 'current'
+            // is accepted. Anything else throws on save.
+            b.ToTable("PlatformIdentities", tb =>
+                tb.HasCheckConstraint("CK_PlatformIdentities_SingleRow", "[RowKey] = 'current'"));
         });
 
         builder.Entity<PortalHandoff>(b => {

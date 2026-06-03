@@ -7,7 +7,7 @@ namespace AuthApi.Seed;
 public static class AuthSeeder {
     private static readonly TenantSeed[] DefaultTenants =
     {
-        new("t-001", "Continuo Central", "default", "central", "contact@example.local", "+905551111111", "Default tenant for internal testing and onboarding")
+        new("t-001", "Continuo Central", "default", "central", "contact@continuo.local", "+905551111111", "Default tenant for internal testing and onboarding")
     };
 
     private static readonly SeedRole[] PlatformRoles =
@@ -30,12 +30,11 @@ public static class AuthSeeder {
                 "platform.auth.users.manage",
                 "platform.auth.screens.manage",
                 "platform.auth.roles.manage",
-                // continuo-ops-ui MaestroTenantManagementPanel: configure per-tenant
+                // tc-ops-ui MaestroTenantManagementPanel: configure per-tenant
                 // Maestro quota, persona and allowed models.
                 "ops.maestro.tenants.manage",
-                // Platform branding/identity runtime config — see
-                // docs/PLATFORM_SETTINGS_PLAN.md.
-                "platform.settings.manage"
+                // tc-ops-ui Platform Agreements admin panel.
+                "platform.agreements.manage"
             }),
         new("PlatformSupport", "Support and logging access", RoleScope.Platform,
             new[] { "platform.logs.view", "platform.support.impersonate", "platform.auth.users.view" }),
@@ -48,7 +47,13 @@ public static class AuthSeeder {
                     "platform.infra.playbook.run", "platform.infra.vm.control",
                     "platform.infra.bootstrap",
                     // Maestro AI — devs are the primary audience for the chat + context + playbook authoring screen.
-                    "platform.maestro.use", "platform.maestro.context.author", "platform.maestro.playbook.author" }),
+                    // Unlimited marker so the wallet check is bypassed (internal staff never see wallet-empty).
+                    "platform.maestro.use", "platform.maestro.context.author", "platform.maestro.playbook.author",
+                    "platform.maestro.unlimited",
+                    // Metronome — devs wire/edit/disable platform scheduled jobs.
+                    "platform.metronome.manage",
+                    // Tempo — devs author/edit platform workflows (multi-step orchestrations).
+                    "platform.tempo.manage" }),
         new("InfraReader", "Read-only infrastructure access", RoleScope.Platform,
             new[] { "platform.infra.view", "platform.infra.logs.view", "platform.infra.files.read" }),
         new("InfraOperator", "Standard infrastructure operator — cleanup, playbooks, file upload, VM control",
@@ -62,7 +67,16 @@ public static class AuthSeeder {
                     "platform.infra.view", "platform.infra.files.read", "platform.infra.files.write",
                     "platform.infra.files.delete", "platform.infra.cleanup.execute",
                     "platform.infra.playbook.run", "platform.infra.vm.control",
-                    "platform.infra.bootstrap" })
+                    "platform.infra.bootstrap",
+                    // Maestro AI unlimited — InfraAdmin runs Maestro for incident response, never billed.
+                    "platform.maestro.use", "platform.maestro.unlimited" }),
+        // Analyst role — read-heavy persona that triages production data via
+        // Maestro chat queries. Carries the Unlimited marker so quota never
+        // gates an incident drill-down.
+        new("Analyst", "Data analyst / business support — unlimited Maestro", RoleScope.Platform,
+            new[] { "platform.logs.view", "platform.auth.users.view",
+                    "platform.maestro.use", "platform.maestro.context.author",
+                    "platform.maestro.unlimited" })
     };
 
     private static readonly SeedRole[] TenantRoles =
@@ -93,8 +107,13 @@ public static class AuthSeeder {
                 // Maestro AI — tenant admins can use the assistant + author contexts/playbooks
                 // for their own tenant. Quota enforced server-side by mae.MaestroTenantPolicy.
                 "tenant.maestro.use", "tenant.maestro.context.author", "tenant.maestro.playbook.author",
-                // Tenant branding override (brand/assistant/domain hint/theme/logo only).
-                "tenant.settings.manage"
+                // Billing — TenantAdmin sees the AI Token Cüzdanı + can purchase. Owner role
+                // grants every tenant permission via PermissionCatalog.All so it gets this too.
+                "tenant.settings.billing.manage",
+                // Metronome — TenantAdmin defines tenant-scope scheduled jobs (EOD reports, etc).
+                "tenant.metronome.manage",
+                // Tempo — TenantAdmin authors workflows + can start them.
+                "tenant.tempo.manage", "tenant.tempo.start"
             }),
         new("OperationManager", "Operations lead", RoleScope.Tenant,
             new[] {
@@ -113,7 +132,10 @@ public static class AuthSeeder {
                 "tenant.notifications.view", "tenant.notifications.manage",
                 "tenant.notifications.dispatch", "tenant.notifications.retry",
                 "tenant.notifications.channels.manage",
-                "tenant.vision.edge.view", "tenant.vision.edge.manage"
+                "tenant.vision.edge.view", "tenant.vision.edge.manage",
+                // Tempo — OperationManager can START approved workflows but
+                // not author new ones (TenantAdmin owns authoring).
+                "tenant.tempo.start"
             }),
         new("CashOperator", "Cash register and cashier oversight", RoleScope.Tenant,
             new[] { "tenant.cash.manage", "tenant.pos.operate", "tenant.orders.view" }),
@@ -139,29 +161,51 @@ public static class AuthSeeder {
     private static readonly SeedScreen[] Screens =
     {
         new("console-admin", "/notifications", "Notifications", "Template tabanli bildirim gonderimi ve izleme", new[] { "tenant.notifications.view" }, "/notifications", "bell", "Core", 87),
-        // continuo-ops-ui – temel paneller
-        new("continuo-ops-ui", "overview", "Ops Overview", "Operasyon genel bakış ve KPI'lar", Array.Empty<string>(), "/operations", "layout-dashboard", "Core", 10),
-        new("continuo-ops-ui", "barista", "Barista", "Barista kontrol paneli", Array.Empty<string>(), "/operations", "shopping-bag", "Core", 20),
-        new("continuo-ops-ui", "transporter", "Transporter", "Transporter kuyruk görüntüleme", Array.Empty<string>(), "/operations", "truck", "Core", 30),
-        new("continuo-ops-ui", "robot-sim", "Robot Sim", "Robot simülasyon paneli", new[] { "tenant.robots.manage" }, "/operations", "bot", "Core", 40),
-        new("continuo-ops-ui", "courier", "Courier", "Kurye görevleri ve harita", Array.Empty<string>(), "/operations", "shopping-cart", "Core", 50),
-        new("continuo-ops-ui", "notifications", "Notifications", "Bildirim listesi", Array.Empty<string>(), "/operations", "bell", "Core", 60),
+        // tc-ops-ui – temel paneller
+        new("tc-ops-ui", "overview", "Ops Overview", "Operasyon genel bakış ve KPI'lar", Array.Empty<string>(), "/operations", "layout-dashboard", "Core", 10),
+        new("tc-ops-ui", "barista", "Barista", "Barista kontrol paneli", Array.Empty<string>(), "/operations", "shopping-bag", "Core", 20),
+        new("tc-ops-ui", "transporter", "Transporter", "Transporter kuyruk görüntüleme", Array.Empty<string>(), "/operations", "truck", "Core", 30),
+        new("tc-ops-ui", "robot-sim", "Robot Sim", "Robot simülasyon paneli", new[] { "tenant.robots.manage" }, "/operations", "bot", "Core", 40),
+        new("tc-ops-ui", "courier", "Courier", "Kurye görevleri ve harita", Array.Empty<string>(), "/operations", "shopping-cart", "Core", 50),
+        new("tc-ops-ui", "notifications", "Notifications", "Bildirim listesi", Array.Empty<string>(), "/operations", "bell", "Core", 60),
 
-        // continuo-ops-ui – modüller
-        new("continuo-ops-ui", "ml", "ML Tanımları", "Model envanteri ve training tetikleme", new[] { "ops.ml.configure" }, "/operations", "flask", "Modules", 110),
-        new("continuo-ops-ui", "parameters", "Parametre Yönetimi", "Platform parametreleri ve sürüm yönetimi", new[] { "ops.parameters.write" }, "/operations", "settings", "Modules", 120),
-        new("continuo-ops-ui", "public-web", "Public Web API", "Metinler ve kampanya kopyaları", new[] { "ops.public-web.manage" }, "/operations", "globe", "Modules", 130),
-        new("continuo-ops-ui", "users", "Platform Kullanıcıları", "Platform kullanıcılarını ve credential'larını yönet", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 140),
-        new("continuo-ops-ui", "roles", "Platform Roller & Ekranlar", "Platform rol/screen yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 150),
-        new("continuo-ops-ui", "ops-roles", "Operasyon Roller", "Rol ve credential eşleşmeleri", new[] { "ops.roles.manage" }, "/operations", "shield", "Modules", 160),
-        new("continuo-ops-ui", "tenant-users", "Tenant Kullanıcıları", "Tenant kullanıcıları için credential ve rol atama", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 170),
-        new("continuo-ops-ui", "tenant-roles", "Tenant Roller & Ekranlar", "Tenant rollerini ve console-admin ekran yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 180),
-        new("continuo-ops-ui", "layouts", "Tenant Layouts", "Kiosk/table layoutları ve tema ayarları", new[] { "ops.layouts.manage" }, "/operations", "layout-template", "Modules", 190),
-        new("continuo-ops-ui", "robot-tasks", "Robot Tasks", "Robot task taslakları ve robot atamaları", new[] { "ops.layouts.manage" }, "/operations", "bot", "Modules", 195),
-        new("continuo-ops-ui", "analytics", "Tenant Analitikleri", "Satış ve başarı oranı raporları", new[] { "ops.analytics.view" }, "/operations", "activity", "Modules", 200),
-        new("continuo-ops-ui", "screen-admin", "Ekran Yetkilendirme", "Ekran erişimlerini yönet", new[] { "platform.auth.screens.manage" }, "/operations", "shield", "Modules", 210),
-        new("continuo-ops-ui", "security", "Security Tanımları", "Gizli bilgi tanımları (credential, connection string, key)", new[] { "platform.security.manage" }, "/operations", "key-round", "Modules", 220),
-        new("continuo-ops-ui", "docs-tracking", "Doküman İzleme", "Tenant ve platform dökümanlarını izleme", new[] { "ops.docs.view" }, "/operations", "file-text", "Modules", 225),
+        // tc-ops-ui – modüller
+        new("tc-ops-ui", "ml", "ML Tanımları", "Model envanteri ve training tetikleme", new[] { "ops.ml.configure" }, "/operations", "flask", "Modules", 110),
+        new("tc-ops-ui", "parameters", "Parametre Yönetimi", "Platform parametreleri ve sürüm yönetimi", new[] { "ops.parameters.write" }, "/operations", "settings", "Modules", 120),
+        new("tc-ops-ui", "public-web", "Public Web API", "Metinler ve kampanya kopyaları", new[] { "ops.public-web.manage" }, "/operations", "globe", "Modules", 130),
+        new("tc-ops-ui", "users", "Platform Kullanıcıları", "Platform kullanıcılarını ve credential'larını yönet", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 140),
+        new("tc-ops-ui", "roles", "Platform Roller & Ekranlar", "Platform rol/screen yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 150),
+        new("tc-ops-ui", "ops-roles", "Operasyon Roller", "Rol ve credential eşleşmeleri", new[] { "ops.roles.manage" }, "/operations", "shield", "Modules", 160),
+        new("tc-ops-ui", "tenant-users", "Tenant Kullanıcıları", "Tenant kullanıcıları için credential ve rol atama", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 170),
+        new("tc-ops-ui", "tenant-roles", "Tenant Roller & Ekranlar", "Tenant rollerini ve console-admin ekran yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 180),
+        new("tc-ops-ui", "layouts", "Tenant Layouts", "Kiosk/table layoutları ve tema ayarları", new[] { "ops.layouts.manage" }, "/operations", "layout-template", "Modules", 190),
+        new("tc-ops-ui", "robot-tasks", "Robot Tasks", "Robot task taslakları ve robot atamaları", new[] { "ops.layouts.manage" }, "/operations", "bot", "Modules", 195),
+        new("tc-ops-ui", "analytics", "Tenant Analitikleri", "Satış ve başarı oranı raporları", new[] { "ops.analytics.view" }, "/operations", "activity", "Modules", 200),
+        new("tc-ops-ui", "screen-admin", "Ekran Yetkilendirme", "Ekran erişimlerini yönet", new[] { "platform.auth.screens.manage" }, "/operations", "shield", "Modules", 210),
+        new("tc-ops-ui", "security", "Security Tanımları", "Gizli bilgi tanımları (credential, connection string, key)", new[] { "platform.security.manage" }, "/operations", "key-round", "Modules", 220),
+        new("tc-ops-ui", "docs-tracking", "Doküman İzleme", "Tenant ve platform dökümanlarını izleme", new[] { "ops.docs.view" }, "/operations", "file-text", "Modules", 225),
+
+        // tc-ops-ui – tenant paket+modül entitlement (Phase 1-6, plan: TENANT_PACKAGES_AND_MODULES_PLAN.md)
+        new("tc-ops-ui", "tenant-modules", "Modül Kataloğu", "Platform modül tanımları, kategori, bağımlılık ve add-on fiyatları",
+            new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 230),
+        new("tc-ops-ui", "tenant-packages", "Paket Kataloğu", "Satış paketleri — tier, dahil modüller, multi-currency fiyat",
+            new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 240),
+        new("tc-ops-ui", "plan-discounts", "İskonto & Kampanyalar", "Tenant-bazlı veya global indirim/kupon yönetimi",
+            new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 250),
+        new("tc-ops-ui", "tenant-entitlements", "Tenant Paket & Modül Atamaları", "Her tenantta hangi paket aktif, hangi modüller etkin, hangi iskontolar uygulanıyor",
+            new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 260),
+        new("tc-ops-ui", "tenant-create", "Yeni Tenant Sihirbazı", "Tek noktada tenant bootstrap akışı — kimlik, paket, modüller, fiyat ve ödeme adımlarıyla provision talebi oluşturur",
+            new[] { "ops.catalog.manage" }, "/operations", "sparkles", "Catalog", 265),
+        new("tc-ops-ui", "provision-requests", "Provision Onayları", "Public signup + ops manuel tenant talepleri, manuel görev checklist'i ve admin onay paneli",
+            new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 270),
+        new("tc-ops-ui", "billing-invoices", "Faturalar & Tahsilat", "Platform abonelik faturaları, ödeme işaretleme, IBAN EFT mutabakat",
+            new[] { "ops.billing.manage" }, "/operations", "tags", "Catalog", 280),
+        new("tc-ops-ui", "payment-provider-settings", "Ödeme Entegrasyonları", "Platform ve tenant başına IBAN / Iyzico ödeme sağlayıcı ayarları. Sırlar security-api'de.",
+            new[] { "ops.billing.manage" }, "/operations", "wallet", "Catalog", 285),
+        new("tc-ops-ui", "platform-ops", "Platform Ops Paneli", "Tenant filo watchlist, MRR, modül adopsiyon, risk + onay durumu (cross-tenant)",
+            new[] { "ops.dashboard.platform.view" }, "/operations", "layout-dashboard", "Platform", 290),
+        new("tc-ops-ui", "/operations/agreements", "Sözleşmeler", "KVKK, Kullanım Koşulları ve Pazarlama İzni metinlerini yönet ve versiyonla",
+            new[] { "platform.agreements.manage" }, "/operations/agreements", "file-text", "Platform", 295),
 
         // console-admin – tenant admin ekranları
         new("console-admin", "/", "Dashboard", "Tenant genel görünümü", Array.Empty<string>(), "/", "home", "Core", 10),
@@ -174,6 +218,7 @@ public static class AuthSeeder {
         new("console-admin", "/orders-board", "Orders Dashboard", "Anlik ve gunluk siparis akis panosu", Array.Empty<string>(), "/orders-board", "desktop", "Core", 30),
         new("console-admin", "/orders", "Order Management", "Siparis detaylari, filtreleme ve yonetim ekrani", Array.Empty<string>(), "/orders", "shopping-cart", "Core", 40),
         new("console-admin", "/inventory", "Inventory", "Stok yönetimi", Array.Empty<string>(), "/inventory", "database", "Core", 50),
+        new("console-admin", "/distributors", "Distributors", "Inventory distributor ve stok bildirim alicilari", new[] { "tenant.inventory.view" }, "/distributors", "truck", "Core", 55),
         new("console-admin", "/campaigns", "Campaigns", "Kampanya yönetimi", Array.Empty<string>(), "/campaigns", "gift", "Core", 60),
         new("console-admin", "/devices", "Devices", "Cihaz yönetimi", Array.Empty<string>(), "/devices", "hdd", "Core", 70),
         new("console-admin", "/customers", "Customers", "Müşteri yönetimi", Array.Empty<string>(), "/customers", "team", "Core", 80),
@@ -197,14 +242,15 @@ public static class AuthSeeder {
         new("console-admin", "/settings", "Settings", "Ayarlar ve yapılandırma", Array.Empty<string>(), "/settings", "setting", "Core", 230),
         new("console-admin", "/vision-edge", "Vision / Edge", "Kamera izleme ve edge bağlantı ayarları", new[] { "tenant.vision.edge.view" }, "/vision-edge", "cloud", "Core", 232),
         new("console-admin", "/settings/secrets", "Tenant Gizli Anahtarları", "Tenant kapsamındaki secret/key yönetimi", new[] { "tenant.security.manage" }, "/settings/secrets", "key", "Core", 235),
+        new("console-admin", "/settings/scheduled-jobs", "Zamanlanmış Görevler", "Cron + tek seferlik scheduled jobs (Metronome)", new[] { "tenant.metronome.manage" }, "/settings/scheduled-jobs", "clock-circle", "Core", 236),
 
-        // maestro-console – geliştirici/destek ekranları
-        new("maestro-console", "/", "Landing", "Giriş ve persona seçimi", Array.Empty<string>()),
-        new("maestro-console", "/workspaces/dev", "Dev Workspace", "CI/CD, log ve test panosu", Array.Empty<string>()),
-        new("maestro-console", "/workspaces/dev/infra", "Infra Control", "Sunucu sağlık, playbook tetikleme, VM yönetimi, servis izleme, backup", new[] { "platform.infra.manage", "platform.infra.logs.view", "platform.infra.view" }, "/workspaces/dev/infra", "server", "Developer", 240),
-        new("maestro-console", "/workspaces/dev/maestro", "Maestro AI", "Kullanıcının kendi LLM API key'leri ile chat, kod analizi ve task tetikleme.", new[] { "platform.maestro.use", "platform.maestro.context.author", "platform.maestro.playbook.author" }, "/workspaces/dev/maestro", "sparkles", "Developer", 250),
-        new("maestro-console", "/workspaces/profile", "Profil & AI Agents", "Kullanıcı profili ve LLM provider API key yönetimi.", Array.Empty<string>(), "/workspaces/profile", "user", "Developer", 260),
-        new("maestro-console", "/workspaces/support", "Support Workspace", "Olay yönetimi ve vardiya planlama", Array.Empty<string>())
+        // dev-support-console – geliştirici/destek ekranları
+        new("dev-support-console", "/", "Landing", "Giriş ve persona seçimi", Array.Empty<string>()),
+        new("dev-support-console", "/workspaces/dev", "Dev Workspace", "CI/CD, log ve test panosu", Array.Empty<string>()),
+        new("dev-support-console", "/workspaces/dev/infra", "Infra Control", "Sunucu sağlık, playbook tetikleme, VM yönetimi, servis izleme, backup", new[] { "platform.infra.manage", "platform.infra.logs.view", "platform.infra.view" }, "/workspaces/dev/infra", "server", "Developer", 240),
+        new("dev-support-console", "/workspaces/dev/maestro", "Maestro AI", "Kullanıcının kendi LLM API key'leri ile chat, kod analizi ve task tetikleme.", new[] { "platform.maestro.use", "platform.maestro.context.author", "platform.maestro.playbook.author" }, "/workspaces/dev/maestro", "sparkles", "Developer", 250),
+        new("dev-support-console", "/workspaces/profile", "Profil & AI Agents", "Kullanıcı profili ve LLM provider API key yönetimi.", Array.Empty<string>(), "/workspaces/profile", "user", "Developer", 260),
+        new("dev-support-console", "/workspaces/support", "Support Workspace", "Olay yönetimi ve vardiya planlama", Array.Empty<string>())
     };
 
     public static async Task SeedAsync(AuthDbContext db) {
@@ -378,7 +424,7 @@ public static class AuthSeeder {
     private static async Task EnsureTenantOwnerAsync(AuthDbContext db) {
         var tenant = await db.Tenants.FirstAsync(t => t.Code == DefaultTenants[0].Code);
         var role = await db.Roles.FirstAsync(r => r.Name == "TenantOwner");
-        const string ownerLogin = "owner@example.local";
+        const string ownerLogin = "owner@continuo.local";
         const string ownerPassword = "Continuo!123";
 
         var user = await db.TenantUsers.Include(u => u.Roles).FirstOrDefaultAsync(u => u.Email == ownerLogin);

@@ -19,10 +19,12 @@ public class CustomersController : ControllerBase {
     private readonly AuthApi.Infrastructure.ITenantContext _tenantContext;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CustomersController> _logger;
-    private static readonly string[] ManagementRoles = { "PlatformOwner", "PlatformAdmin", "PlatformSupport" };
-    private static readonly string[] CustomerManagementRoles = {
-        "PlatformOwner", "PlatformAdmin", "PlatformSupport",
-        "TenantOwner", "TenantAdmin", "OperationManager"
+    private static readonly PlatformRole[] ManagementRoles = {
+        PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin, PlatformRole.PlatformSupport
+    };
+    private static readonly PlatformRole[] CustomerManagementRoles = {
+        PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin, PlatformRole.PlatformSupport,
+        PlatformRole.TenantOwner, PlatformRole.TenantAdmin, PlatformRole.OperationManager
     };
     private static readonly string[] CustomerViewPermissions = [
         PermissionKeys.Tenant.CustomersView,

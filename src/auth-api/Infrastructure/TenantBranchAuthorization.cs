@@ -13,7 +13,7 @@ public readonly record struct TenantBranchActorScope(
 }
 
 public static class TenantBranchAuthorization {
-    private static readonly string[] OwnerRoles = { "PlatformOwner", "TenantOwner" };
+    private static readonly PlatformRole[] OwnerRoles = { PlatformRole.PlatformOwner, PlatformRole.TenantOwner };
 
     public static TenantBranchActorScope Resolve(HttpContext context, ITenantContext tenantContext, IConfiguration configuration) {
         var ownerLogin = configuration["AUTH_OWNER_LOGIN"] ?? "platform.owner@example.local";

@@ -15,6 +15,12 @@ public class UserSession {
 
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
+
+    // SHA-256(base64url) hash of the opaque session token handed to the browser
+    // cookie. The plaintext token never persists. Lookups go by hash, so a DB
+    // dump cannot resurrect anyone's session. Nullable for the rolling deploy
+    // window where pre-opaque sessions still exist; fresh logins always fill it.
+    public string? SessionTokenHash { get; set; }
 }
 
 public static class UserSessionRevocationReasons {

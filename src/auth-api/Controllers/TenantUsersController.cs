@@ -154,35 +154,132 @@ public class TenantUsersController : ControllerBase {
         var displayName = string.IsNullOrWhiteSpace(req.DisplayName) ? email : req.DisplayName.Trim();
         var tenantCode = requestedTenantCode!;
 
-        // Pasif TenantUser/credential ayni mailde yeni aktif kayit eklemeyi bloklamaz.
-        var exists = await _db.TenantUsers.AnyAsync(u => u.Email == email && u.Status == TenantUserStatus.Active, ct)
-            || await _db.Credentials.AnyAsync(c => c.Login == email && c.IsActive, ct);
-        if (exists) {
-            return Conflict("User already exists");
-        }
-
         var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Code == tenantCode || t.Slug == tenantCode, ct);
         if (tenant == null) {
             return BadRequest("TenantCode is not valid");
         }
 
-        var user = new TenantUser {
-            TenantId = tenant.Id,
-            DisplayName = displayName,
-            Email = email,
-            Status = TenantUserStatus.Active
-        };
+        // Ayni tenant'ta aktif TenantUser varsa gercek conflict.
+        if (await _db.TenantUsers.AnyAsync(
+                u => u.TenantId == tenant.Id && u.Email == email && u.Status == TenantUserStatus.Active, ct)) {
+            return Conflict("User already exists in this tenant");
+        }
 
-        var credential = new Credential {
-            Login = email,
-            Email = email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-            OwnerType = CredentialOwnerType.TenantUser,
-            TenantUser = user,
-            IsActive = true
-        };
+        // Pasif TenantUser ayni tenant'ta varsa: yeni satir acma — eskisini reaktive et.
+        var inactiveUser = await _db.TenantUsers
+            .Include(u => u.Credentials)
+            .Where(u => u.TenantId == tenant.Id
+                && u.Email == email
+                && u.Status != TenantUserStatus.Active
+                && u.Status != TenantUserStatus.Deleted)
+            .OrderByDescending(u => u.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
 
-        user.Credentials.Add(credential);
+        TenantUser user;
+        Credential credential;
+        var attachedToExisting = false;
+        var passwordIgnored = false;
+        var reactivated = false;
+
+        if (inactiveUser != null) {
+            inactiveUser.Status = TenantUserStatus.Active;
+            inactiveUser.DisplayName = displayName;
+            inactiveUser.UpdatedAtUtc = DateTime.UtcNow;
+
+            var ownCredential = inactiveUser.Credentials
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .FirstOrDefault(c => c.Login == email);
+
+            if (ownCredential != null) {
+                ownCredential.IsActive = true;
+                ownCredential.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password);
+                ownCredential.MustChangePassword = true;
+                ownCredential.PasswordChangedAtUtc = null;
+                credential = ownCredential;
+            }
+            else {
+                credential = new Credential {
+                    Login = email,
+                    Email = email,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
+                    OwnerType = CredentialOwnerType.TenantUser,
+                    TenantUser = inactiveUser,
+                    IsActive = true,
+                    MustChangePassword = true
+                };
+                inactiveUser.Credentials.Add(credential);
+                _db.Credentials.Add(credential);
+            }
+
+            user = inactiveUser;
+            reactivated = true;
+        }
+        else {
+            // Ayni mailde aktif credential olabilir (PlatformUser veya Customer'dan).
+            // Bu durumda yeni credential acmak yerine mevcut credential'a TenantUser FK'sini
+            // iliştir: tek hesap, ortak parola, iki taraflı yetki. Parola dokunulmaz —
+            // kullanici mevcut sifresiyle login olmaya devam eder; admin yazdigi sifre ignore.
+            var existingActiveCredential = await _db.Credentials
+                .FirstOrDefaultAsync(c => c.Login == email && c.IsActive, ct);
+
+            if (existingActiveCredential != null) {
+                if (existingActiveCredential.TenantUserId.HasValue) {
+                    // Credential zaten baska bir TenantUser'a (baska tenant) bagli.
+                    // Tek FK kolonu var; iki tenant'a ayni anda baglanamaz.
+                    var otherTenantUser = await _db.TenantUsers
+                        .Where(u => u.Id == existingActiveCredential.TenantUserId.Value)
+                        .Select(u => new { u.TenantId, u.Status })
+                        .FirstOrDefaultAsync(ct);
+
+                    if (otherTenantUser != null
+                            && otherTenantUser.TenantId != tenant.Id
+                            && otherTenantUser.Status != TenantUserStatus.Deleted) {
+                        return Conflict(
+                            "Bu email baska bir isletmede zaten kullaniliyor. Ayni kimligi birden fazla isletmeye baglamak su an desteklenmiyor.");
+                    }
+                }
+
+                user = new TenantUser {
+                    TenantId = tenant.Id,
+                    DisplayName = displayName,
+                    Email = email,
+                    Status = TenantUserStatus.Active
+                };
+                _db.TenantUsers.Add(user);
+
+                existingActiveCredential.TenantUser = user;
+                // Platform > Tenant > Customer onceligi: Platform credential ise OwnerType degisme.
+                // Customer credential ise TenantUser'a yukselt (TenantUser > Customer).
+                if (existingActiveCredential.OwnerType == CredentialOwnerType.Customer) {
+                    existingActiveCredential.OwnerType = CredentialOwnerType.TenantUser;
+                }
+
+                credential = existingActiveCredential;
+                attachedToExisting = true;
+                passwordIgnored = true;
+            }
+            else {
+                user = new TenantUser {
+                    TenantId = tenant.Id,
+                    DisplayName = displayName,
+                    Email = email,
+                    Status = TenantUserStatus.Active
+                };
+
+                credential = new Credential {
+                    Login = email,
+                    Email = email,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
+                    OwnerType = CredentialOwnerType.TenantUser,
+                    TenantUser = user,
+                    IsActive = true
+                };
+
+                user.Credentials.Add(credential);
+                _db.TenantUsers.Add(user);
+                _db.Credentials.Add(credential);
+            }
+        }
 
         if (req.BranchRoles is { Length: > 0 }) {
             var roleIds = req.BranchRoles
@@ -230,11 +327,16 @@ public class TenantUsersController : ControllerBase {
             }
         }
 
-        _db.TenantUsers.Add(user);
-        _db.Credentials.Add(credential);
         await _db.SaveChangesAsync(ct);
 
-        return Created($"/auth/tenant-users/{user.Id}", new { id = user.Id.ToString(), user.Email, user.DisplayName });
+        return Created($"/auth/tenant-users/{user.Id}", new {
+            id = user.Id.ToString(),
+            user.Email,
+            user.DisplayName,
+            attachedToExistingCredential = attachedToExisting,
+            passwordIgnored,
+            reactivated
+        });
     }
 
     [HttpPatch("{id}/active")]
@@ -264,8 +366,17 @@ public class TenantUsersController : ControllerBase {
 
         user.Status = req.Active ? TenantUserStatus.Active : TenantUserStatus.Disabled;
         user.UpdatedAtUtc = DateTime.UtcNow;
+        // Multi-membership: bir credential ayni anda hem PlatformUser hem TenantUser'a
+        // (veya Customer'a) bagli olabilir. Bu TenantUser'i disable etmek shared
+        // credential'in IsActive'ini false yaparsa platform/customer login'i de kirilir
+        // — gizli baska-membership kapama. credential.IsActive sadece bu TenantUser
+        // dis kalan tek owner ise degistirilmeli; aksi halde TenantUser.Status alone
+        // taşıyor.
         foreach (var cred in user.Credentials) {
-            cred.IsActive = req.Active;
+            var isExclusivelyTenant = cred.PlatformUserId == null && cred.CustomerId == null;
+            if (isExclusivelyTenant) {
+                cred.IsActive = req.Active;
+            }
         }
 
         await _db.SaveChangesAsync(ct);
@@ -422,8 +533,21 @@ public class TenantUsersController : ControllerBase {
         user.Status = TenantUserStatus.Deleted;
         user.UpdatedAtUtc = DateTime.UtcNow;
 
+        // Multi-membership: shared credential'i IsActive=false yapma — Platform/Customer
+        // login'i de kapanir. Shared olanlar icin sadece TenantUserId FK'sini sok
+        // (credential aktif kaliyor, baska-membership login'i devam ediyor). Tek-owner
+        // olanlar icin eski davranis: credential'i kapatup.
         foreach (var credential in user.Credentials) {
-            credential.IsActive = false;
+            var isExclusivelyTenant = credential.PlatformUserId == null && credential.CustomerId == null;
+            if (isExclusivelyTenant) {
+                credential.IsActive = false;
+            }
+            else {
+                // CHECK constraint (AuthDbContext: en az 1 owner) baska FK kalmasi
+                // sayesinde holding; sadece tenant-tarafini cozuyoruz.
+                credential.TenantUserId = null;
+                credential.TenantUser = null;
+            }
         }
 
         await _db.SaveChangesAsync(ct);

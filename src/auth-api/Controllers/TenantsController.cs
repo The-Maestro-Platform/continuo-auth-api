@@ -14,7 +14,7 @@ namespace AuthApi.Controllers;
 public class TenantsController : ControllerBase {
     private readonly TenantsService _tenants;
     private readonly IConfiguration _configuration;
-    private static readonly string[] ManagementRoles = { "PlatformOwner", "PlatformAdmin" };
+    private static readonly PlatformRole[] ManagementRoles = { PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin };
     private static readonly string[] ManagementPermissions = [
         PermissionKeys.Platform.TenantsManage
     ];

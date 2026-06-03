@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using AuthApi.Data;
 using AuthApi.Models;
 using AuthApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -25,16 +24,19 @@ namespace AuthApi.Controllers;
 public class AuthClaimsController : ControllerBase {
     private readonly AuthDbContext _db;
     private readonly IScreenAccessService _screenAccess;
+    private readonly ISessionService _sessionService;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthClaimsController> _logger;
 
     public AuthClaimsController(
         AuthDbContext db,
         IScreenAccessService screenAccess,
+        ISessionService sessionService,
         IConfiguration config,
         ILogger<AuthClaimsController> logger) {
         _db = db;
         _screenAccess = screenAccess;
+        _sessionService = sessionService;
         _config = config;
         _logger = logger;
     }
@@ -42,45 +44,72 @@ public class AuthClaimsController : ControllerBase {
     [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetClaims([FromQuery] string? app = null, CancellationToken ct = default) {
-        var token = ResolveToken();
-        if (string.IsNullOrWhiteSpace(token)) {
-            return Unauthorized(new { message = "Missing token" });
+        // Token resolution order:
+        //   1. X-Session-Token header (BFF native path).
+        //   2. Authorization: Bearer / auth_token cookie / ?token=… (orchestrator
+        //      may convert an opaque cookie into a Bearer header before forward).
+        //      A 3-segment value is treated as a JWT; anything else is tried as
+        //      an opaque session token so the rolling-deploy window is forgiving.
+        var opaqueSessionToken = HttpContext.Request.Headers["X-Session-Token"].FirstOrDefault()?.Trim();
+        var bearerOrCookie = ResolveToken();
+        Ulid credentialId;
+
+        if (string.IsNullOrWhiteSpace(opaqueSessionToken) && !string.IsNullOrWhiteSpace(bearerOrCookie) && !LooksLikeJwt(bearerOrCookie)) {
+            opaqueSessionToken = bearerOrCookie;
         }
 
-        var secret = _config["JWT:SECRET"] ?? _config["JWT__SECRET"];
-        if (string.IsNullOrWhiteSpace(secret)) {
-            return StatusCode(500, new { message = "JWT secret missing" });
+        if (!string.IsNullOrWhiteSpace(opaqueSessionToken)) {
+            var session = await _sessionService.ResolveByOpaqueTokenAsync(opaqueSessionToken, ct);
+            if (session == null) {
+                return Unauthorized(new { message = "session_invalid" });
+            }
+            credentialId = session.CredentialId;
         }
+        else {
+            // Legacy JWT-bearer path — kept while older browsers still hold a
+            // JWT cookie. After the rolling cutover this branch can be removed.
+            if (string.IsNullOrWhiteSpace(bearerOrCookie)) {
+                return Unauthorized(new { message = "Missing token" });
+            }
 
-        var issuer = _config["JWT:ISSUER"] ?? _config["JWT__ISSUER"];
-        var audience = _config["JWT:AUDIENCE"] ?? _config["JWT__AUDIENCE"];
+            var secret = _config["JWT:SECRET"] ?? _config["JWT__SECRET"];
+            if (string.IsNullOrWhiteSpace(secret)) {
+                return StatusCode(500, new { message = "JWT secret missing" });
+            }
 
-        var validationParams = new TokenValidationParameters {
-            ValidateIssuer = !string.IsNullOrWhiteSpace(issuer),
-            ValidIssuer = issuer,
-            ValidateAudience = !string.IsNullOrWhiteSpace(audience),
-            ValidAudience = audience,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
+            var issuer = _config["JWT:ISSUER"] ?? _config["JWT__ISSUER"];
+            var audience = _config["JWT:AUDIENCE"] ?? _config["JWT__AUDIENCE"];
 
-        ClaimsPrincipal principal;
-        try {
-            var handler = new JwtSecurityTokenHandler();
-            principal = handler.ValidateToken(token, validationParams, out _);
-        }
-        catch (SecurityTokenException) {
-            return Unauthorized(new { message = "Invalid token" });
-        }
+            var validationParams = new TokenValidationParameters {
+                ValidateIssuer = !string.IsNullOrWhiteSpace(issuer),
+                ValidIssuer = issuer,
+                ValidateAudience = !string.IsNullOrWhiteSpace(audience),
+                ValidAudience = audience,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
 
-        var credentialIdRaw = principal.Claims.FirstOrDefault(c =>
-            c.Type == ClaimTypes.NameIdentifier ||
-            c.Type == JwtRegisteredClaimNames.Sub ||
-            c.Type == "sub")?.Value;
-        if (string.IsNullOrWhiteSpace(credentialIdRaw) || !Ulid.TryParse(credentialIdRaw, out var credentialId)) {
-            return Unauthorized(new { message = "Invalid token subject" });
+            ClaimsPrincipal principal;
+            try {
+                var handler = new JwtSecurityTokenHandler();
+                principal = handler.ValidateToken(bearerOrCookie, validationParams, out _);
+            }
+            // IDX12741 surfaces as ArgumentException for malformed inputs (no 3 segments),
+            // and SecurityTokenException for cryptographic / lifetime failures. Treat
+            // both as "not a usable JWT" — opaque was already attempted above.
+            catch (Exception ex) when (ex is SecurityTokenException || ex is ArgumentException) {
+                return Unauthorized(new { message = "Invalid token" });
+            }
+
+            var credentialIdRaw = principal.Claims.FirstOrDefault(c =>
+                c.Type == ClaimTypes.NameIdentifier ||
+                c.Type == JwtRegisteredClaimNames.Sub ||
+                c.Type == "sub")?.Value;
+            if (string.IsNullOrWhiteSpace(credentialIdRaw) || !Ulid.TryParse(credentialIdRaw, out credentialId)) {
+                return Unauthorized(new { message = "Invalid token subject" });
+            }
         }
 
         var credential = await _db.Credentials
@@ -192,6 +221,15 @@ public class AuthClaimsController : ControllerBase {
             return credential.TenantUser.Roles;
         }
         return Array.Empty<UserRole>();
+    }
+
+    // JWT compact serialization is exactly `header.payload.signature` — 3 non-empty
+    // segments separated by dots. Opaque session tokens are base64url(32 bytes) and
+    // contain no dots. A non-JWT input lets us re-route to the opaque-session path
+    // before invoking the JWT parser (which throws IDX12741 on malformed values).
+    private static bool LooksLikeJwt(string value) {
+        var parts = value.Split('.');
+        return parts.Length == 3 && !string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]) && !string.IsNullOrEmpty(parts[2]);
     }
 
     private string? ResolveToken() {

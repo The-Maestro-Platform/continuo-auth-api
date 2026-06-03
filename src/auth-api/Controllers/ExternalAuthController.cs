@@ -21,6 +21,8 @@ public class ExternalAuthController : ControllerBase {
     private readonly IGoogleAuthService _googleAuthService;
     private readonly ITokenService _tokenService;
     private readonly TwoFactorService _twoFactorService;
+    private readonly ITrustedDeviceService _trustedDeviceService;
+    private readonly ISessionService _sessionService;
     private readonly IScreenAccessService _screenAccess;
     private readonly IConfiguration _config;
     private readonly ILogger<ExternalAuthController> _logger;
@@ -30,6 +32,8 @@ public class ExternalAuthController : ControllerBase {
         IGoogleAuthService googleAuthService,
         ITokenService tokenService,
         TwoFactorService twoFactorService,
+        ITrustedDeviceService trustedDeviceService,
+        ISessionService sessionService,
         IScreenAccessService screenAccess,
         IConfiguration config,
         ILogger<ExternalAuthController> logger) {
@@ -37,9 +41,44 @@ public class ExternalAuthController : ControllerBase {
         _googleAuthService = googleAuthService;
         _tokenService = tokenService;
         _twoFactorService = twoFactorService;
+        _trustedDeviceService = trustedDeviceService;
+        _sessionService = sessionService;
         _screenAccess = screenAccess;
         _config = config;
         _logger = logger;
+    }
+
+    private string? ResolveTrustedDeviceToken() =>
+        HttpContext.Request.Headers["X-Trusted-Device-Token"].FirstOrDefault();
+
+    private string? ResolveClientIp() {
+        var fwd = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(fwd)) {
+            return fwd.Split(',')[0].Trim();
+        }
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
+    }
+
+    private string? ResolveUserAgent() => HttpContext.Request.Headers["User-Agent"].FirstOrDefault();
+
+    private string ResolveAppId() {
+        var raw = HttpContext.Request.Query["app"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(raw)) {
+            return "default";
+        }
+        return raw.Trim().ToLowerInvariant();
+    }
+
+    private string ResolveOwnerLogin() =>
+        (_config["AUTH:OWNER_LOGIN"]
+         ?? _config["AUTH__OWNER_LOGIN"]
+         ?? Environment.GetEnvironmentVariable("AUTH_OWNER_LOGIN")
+         ?? "platform.owner@example.local").Trim();
+
+    private bool IsPlatformOwner(Credential credential) {
+        var ownerLogin = ResolveOwnerLogin();
+        return string.Equals(credential.Login?.Trim(), ownerLogin, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(credential.Email?.Trim(), ownerLogin, StringComparison.OrdinalIgnoreCase);
     }
 
     [ContinuoProxyMethod("ui")]
@@ -211,14 +250,21 @@ public class ExternalAuthController : ControllerBase {
         }
 
         if (_twoFactorService.RequiresTwoFactor(credential)) {
-            var challenge = await _twoFactorService.CreateChallengeAsync(credential, HttpContext.RequestAborted);
-            return Ok(new {
-                requiresTwoFactor = true,
-                challengeId = challenge.Id.ToString(),
-                expiresAtUtc = challenge.ExpiresAtUtc,
-                channel = challenge.Channel,
-                targetHint = MaskTarget(challenge.Target)
-            });
+            // Trusted-device fast-path: if the browser sent a token issued from a
+            // prior 2FA on this credential and it has not expired/been revoked,
+            // skip the email challenge and continue straight to JWT issuance.
+            var trustedToken = ResolveTrustedDeviceToken();
+            var isTrusted = await _trustedDeviceService.IsTrustedAsync(credential.Id, trustedToken, HttpContext.RequestAborted);
+            if (!isTrusted) {
+                var challenge = await _twoFactorService.CreateChallengeAsync(credential, HttpContext.RequestAborted);
+                return Ok(new {
+                    requiresTwoFactor = true,
+                    challengeId = challenge.Id.ToString(),
+                    expiresAtUtc = challenge.ExpiresAtUtc,
+                    channel = challenge.Channel,
+                    targetHint = MaskTarget(challenge.Target)
+                });
+            }
         }
 
         credential.LastLoginAtUtc = DateTime.UtcNow;
@@ -298,12 +344,25 @@ public class ExternalAuthController : ControllerBase {
         var appCode = HttpContext.Request.Query["app"].FirstOrDefault();
         var screens = await _screenAccess.ResolveScreensAsync(credential, permissionKeys, ownerRoles, appCode, HttpContext.RequestAborted);
 
-        var (accessToken, accessExpires) = await _tokenService.CreateAccessTokenAsync(credential, roleNames, permissionKeys, screens);
+        // Opaque session — BFF stores this in the auth cookie; downstream session-exchange
+        // calls trade it back to a fresh JWT. Mirror AuthController.BuildAuthResponseAsync
+        // so external (Google) logins reach the same post-auth state as password logins.
+        var (session, opaqueSessionToken) = await _sessionService.CreateAsync(
+            credential.Id,
+            ResolveAppId(),
+            exemptFromSingleSession: IsPlatformOwner(credential),
+            ResolveClientIp(),
+            ResolveUserAgent(),
+            HttpContext.RequestAborted);
+
+        var (accessToken, accessExpires) = await _tokenService.CreateAccessTokenAsync(credential, roleNames, permissionKeys, screens, sessionId: session.Id);
         var (refreshToken, refreshExpires) = await _tokenService.CreateRefreshTokenAsync();
 
         return new {
             accessToken,
             accessExpires,
+            sessionToken = opaqueSessionToken,
+            sessionExpires = (DateTime?)null,
             refreshToken,
             refreshExpires,
             credential = new {

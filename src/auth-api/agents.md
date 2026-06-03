@@ -31,7 +31,7 @@
 - **JWT token generation**: Token claims must include tenant context, user ID, roles, and permissions
 - **Audit logging**: ALL write operations (create, update, delete) on credentials, roles, and permissions MUST be audit-logged
 - **BFF auth handler**: Returns 403 (not 401) with localized message "Gecersiz kullanici adi veya sifre" for failed logins via BFF
-- **Screen assignments**: maestro-console and other admin UIs require explicit screen assignments in Platform Roller & Ekranlar
+- **Screen assignments**: dev-support-console and other admin UIs require explicit screen assignments in Platform Roller & Ekranlar
 - **Tenant isolation is critical**: User queries MUST always scope by tenant — a TenantUser from Tenant A must NEVER see data from Tenant B
 - **Rate limiting**: Login endpoints should be protected against brute force (lockout after N failed attempts)
 - **Token refresh**: Refresh tokens must be stored securely and rotated on use
@@ -48,7 +48,7 @@
 
 ## Adding a New UI Screen End-to-End
 
-> Use this checklist when introducing a new screen in any client app (`maestro-console`, `console-admin`, `continuo-ops-ui`, etc.). Skipping a step typically results in: screen not in nav menu, "Permission'lara yazınca hiç bir şey gelmiyor" in Roller & Ekranlar, or backend endpoints returning 403/401 even though the user "should" have access. All four pieces must land together.
+> Use this checklist when introducing a new screen in any client app (`dev-support-console`, `console-admin`, `tc-ops-ui`, etc.). Skipping a step typically results in: screen not in nav menu, "Permission'lara yazınca hiç bir şey gelmiyor" in Roller & Ekranlar, or backend endpoints returning 403/401 even though the user "should" have access. All four pieces must land together.
 
 ### Step 1 — Frontend route + component
 - Create the page under `ui/apps/<app-name>/app/<route-path>/page.tsx` (Next.js App Router).
@@ -67,7 +67,7 @@
 ### Step 4 — Screen registration in seed
 - Edit [services/auth-api/Seed/AuthSeeder.cs](Seed/AuthSeeder.cs) — add a `SeedScreen` row to the `Screens` array. Format:
   ```csharp
-  new("maestro-console",            // appName — must match resolveClientApp()
+  new("dev-support-console",            // appName — must match resolveClientApp()
       "/workspaces/dev/feature",        // route key (also displayed in admin grid)
       "Feature Display Name",           // shown in admin grid + nav fallback
       "Tek cümlelik Türkçe açıklama.",  // tooltip / catalog description

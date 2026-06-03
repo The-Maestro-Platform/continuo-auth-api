@@ -294,6 +294,32 @@ public class AuthController : ControllerBase {
     [ContinuoProxyMethod("ui")]
     [HttpPost("refresh")]
     public async Task<IActionResult> RefreshToken() {
+        // Opaque-session refresh path: BFF holds only the opaque token, sends
+        // it via X-Session-Token. We look up the live session, hydrate the
+        // credential, and mint a fresh JWT keyed to the same sid. No JWT
+        // re-validation needed because the session row is the source of truth.
+        var opaqueSessionToken = ResolveOpaqueSessionToken();
+        if (!string.IsNullOrWhiteSpace(opaqueSessionToken)) {
+            var session = await _sessionService.ResolveByOpaqueTokenAsync(opaqueSessionToken, HttpContext.RequestAborted);
+            if (session == null) {
+                return Unauthorized(new { message = "session_replaced", reason = "session_replaced" });
+            }
+
+            var credentialFromSession = await LoadCredentialAsync(session.CredentialId, HttpContext.RequestAborted);
+            if (credentialFromSession == null || !credentialFromSession.IsActive) {
+                return Unauthorized(new { message = "Invalid credentials" });
+            }
+
+            if (!IsContextAllowed(credentialFromSession, out var sessionContextDenyReason)) {
+                return Unauthorized(new { message = sessionContextDenyReason });
+            }
+
+            var sessionResponse = await BuildAuthResponseAsync(credentialFromSession, session.Id);
+            return Ok(sessionResponse);
+        }
+
+        // Legacy JWT-bearer refresh path (kept during the rolling deploy window —
+        // older browsers still hold a JWT cookie until they re-login).
         var token = ResolveToken();
         if (string.IsNullOrWhiteSpace(token)) {
             return Unauthorized(new { message = "Missing token" });
@@ -310,22 +336,7 @@ public class AuthController : ControllerBase {
             return Unauthorized(new { message = "Invalid token" });
         }
 
-        var credential = await _db.Credentials
-            .Include(c => c.PlatformUser)
-                .ThenInclude(u => u!.Roles)
-                    .ThenInclude(r => r.Role!)
-                        .ThenInclude(role => role!.Permissions)
-            .Include(c => c.TenantUser)
-                .ThenInclude(u => u!.Tenant)
-            .Include(c => c.TenantUser)
-                .ThenInclude(u => u!.Roles)
-                    .ThenInclude(r => r.Role!)
-                        .ThenInclude(role => role!.Permissions)
-            .Include(c => c.Customer)
-                .ThenInclude(cust => cust!.Tenant)
-            .Include(c => c.Customer)
-            .FirstOrDefaultAsync(c => c.Id == credentialId);
-
+        var credential = await LoadCredentialAsync(credentialId, HttpContext.RequestAborted);
         if (credential == null || !credential.IsActive) {
             return Unauthorized(new { message = "Invalid credentials" });
         }
@@ -357,11 +368,57 @@ public class AuthController : ControllerBase {
         return Ok(response);
     }
 
+    private Task<Credential?> LoadCredentialAsync(Ulid credentialId, CancellationToken ct) {
+        return _db.Credentials
+            .Include(c => c.PlatformUser)
+                .ThenInclude(u => u!.Roles)
+                    .ThenInclude(r => r.Role!)
+                        .ThenInclude(role => role!.Permissions)
+            .Include(c => c.TenantUser)
+                .ThenInclude(u => u!.Tenant)
+            .Include(c => c.TenantUser)
+                .ThenInclude(u => u!.Roles)
+                    .ThenInclude(r => r.Role!)
+                        .ThenInclude(role => role!.Permissions)
+            .Include(c => c.Customer)
+                .ThenInclude(cust => cust!.Tenant)
+            .Include(c => c.Customer)
+            .FirstOrDefaultAsync(c => c.Id == credentialId, ct);
+    }
+
+    private string? ResolveOpaqueSessionToken() {
+        var raw = HttpContext.Request.Headers["X-Session-Token"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(raw)) {
+            return raw.Trim();
+        }
+
+        // Fallback: orchestrator may convert an opaque cookie into Authorization: Bearer
+        // before forwarding to auth-api. A non-3-segment value is an opaque session
+        // token; only treat 3-dot inputs as a real JWT.
+        var bearer = ResolveToken();
+        if (!string.IsNullOrWhiteSpace(bearer) && !LooksLikeJwt(bearer)) {
+            return bearer.Trim();
+        }
+
+        return null;
+    }
+
+    private static bool LooksLikeJwt(string value) {
+        var parts = value.Split('.');
+        return parts.Length == 3 && !string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]) && !string.IsNullOrEmpty(parts[2]);
+    }
+
     [ContinuoProxyMethod("ui")]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout() {
         // Idempotent: çağrı her zaman 200 döner. sid yok / token süresi geçmiş
         // olabilir; bu durumlarda da front-end'in cookie temizliği bozulmasın.
+        var opaqueSessionToken = ResolveOpaqueSessionToken();
+        if (!string.IsNullOrWhiteSpace(opaqueSessionToken)) {
+            await _sessionService.RevokeByOpaqueTokenAsync(opaqueSessionToken, UserSessionRevocationReasons.Logout, HttpContext.RequestAborted);
+            return Ok(new { ok = true });
+        }
+
         var token = ResolveToken();
         if (!string.IsNullOrWhiteSpace(token)) {
             try {
@@ -438,7 +495,18 @@ public class AuthController : ControllerBase {
         var ownerRoles = ResolveRoles(credential).ToList();
         var userRoles = ResolveUserRoles(credential).ToList();
         var roleNames = ownerRoles.Select(r => r.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var permissionKeys = ownerRoles.SelectMany(r => r.Permissions.Select(p => p.PermissionKey))
+        var rolePermissions = ownerRoles.SelectMany(r => r.Permissions.Select(p => p.PermissionKey));
+        // Customer credentials get the customer.* maestro permissions automatically
+        // — we don't seed a CustomerStandard role because qrmenu customers come
+        // through a different signup pipeline (no admin role assignment). This
+        // keeps the wallet + chat surfaces accessible to every authenticated guest
+        // without explicit role admin work. Plan: MAESTRO_TOKEN_WALLET_PLAN.md §7.
+        var permissionKeys = (credential.OwnerType == CredentialOwnerType.Customer
+                ? rolePermissions.Concat(new[] {
+                    AuthApi.Permissions.PermissionKeys.Customer.MaestroUse,
+                    AuthApi.Permissions.PermissionKeys.Customer.MaestroBillingManage
+                  })
+                : rolePermissions)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -459,11 +527,15 @@ public class AuthController : ControllerBase {
         var screens = await _screenAccess.ResolveScreensAsync(credential, permissionKeys, ownerRoles, appCode, httpContext.RequestAborted);
 
         // Single-active-session enforcement: on a fresh login, create a UserSession
-        // row for (credential, app). For platform.owner the displacement step is skipped
+        // row + opaque session token. For platform.owner the displacement step is skipped
         // (multi-device access is permitted). On refresh, we re-use the existing session id.
+        // Opaque sessionToken is only returned to the BFF on the original /auth/login call;
+        // refresh/2FA-verify paths re-use the existing session row and don't surface it again
+        // because the BFF already has the cookie set.
         var sessionId = existingSessionId;
+        string? opaqueSessionToken = null;
         if (sessionId == null) {
-            var session = await _sessionService.CreateAsync(
+            var (session, opaque) = await _sessionService.CreateAsync(
                 credential.Id,
                 ResolveAppId(),
                 exemptFromSingleSession: IsPlatformOwner(credential),
@@ -471,6 +543,7 @@ public class AuthController : ControllerBase {
                 ResolveUserAgent(),
                 httpContext.RequestAborted);
             sessionId = session.Id;
+            opaqueSessionToken = opaque;
         }
 
         var (accessToken, accessExpires) = await _tokenService.CreateAccessTokenAsync(credential, roleNames, permissionKeys, screens, branchCodes, branchRoleClaims, sessionId);
@@ -483,6 +556,12 @@ public class AuthController : ControllerBase {
         return new {
             accessToken,
             accessExpires,
+            // Opaque session token — BFF must store this in the HttpOnly browser
+            // cookie instead of the bloated JWT. The BFF exchanges it back to a
+            // fresh JWT on every downstream call (per-process cached). See
+            // SessionExchangeController + ui/packages/bff session helpers.
+            sessionToken = opaqueSessionToken,
+            sessionExpires = (DateTime?)null,
             refreshToken,
             refreshExpires,
             trustedDeviceToken,
@@ -533,8 +612,8 @@ public class AuthController : ControllerBase {
     /// facing app'ler ayri kurallarla degerlendirilir.
     /// </summary>
     private static readonly HashSet<string> PlatformOnlyApps = new(StringComparer.OrdinalIgnoreCase) {
-        "continuo-ops-ui",
-        "maestro-console",
+        "tc-ops-ui",
+        "dev-support-console",
         "tcc-ops-ui",
         "tcc-ui"
     };
@@ -550,13 +629,13 @@ public class AuthController : ControllerBase {
     /// Login isteğinde URL ve hedef UI app context'ine göre kim girebilir kararı.
     ///
     /// Kurallar (X-Client-App + X-Tenant-Slug + X-Env-Prefix tabanlı):
-    /// - Platform-only app (continuo-ops-ui, maestro-console, vs.) → her ortamda
+    /// - Platform-only app (tc-ops-ui, dev-support-console, vs.) → her ortamda
     ///   yalnızca PlatformUser. Tenant/Customer reddedilir.
     /// - Tenant admin app (console-admin):
     ///   * X-Tenant-Slug yok (env-master URL gibi) → yalnız PlatformUser.
     ///   * X-Tenant-Slug var → PlatformUser her zaman OK, TenantUser ise kendi
     ///     tenant.Slug'i eşleşiyorsa OK (eski versiyonda Code ile karşılaştırılıyordu;
-    ///     seeded `t-001 / default` tipi case'lerde slug != code → guard yanlış
+    ///     seeded `t-001 / continuo` tipi case'lerde slug != code → guard yanlış
     ///     bloklamıştı. Slug-first, code-fallback ile düzeltildi).
     /// - Customer-facing app (qrmenu-*, public-web, vs.):
     ///   * Customer can authenticate only when the target app is explicitly
@@ -592,7 +671,7 @@ public class AuthController : ControllerBase {
         var isPlatformOnlyApp = !string.IsNullOrEmpty(clientApp) && PlatformOnlyApps.Contains(clientApp);
         var isCustomerFacingApp = !string.IsNullOrEmpty(clientApp) && CustomerFacingApps.Contains(clientApp);
 
-        // 1) Platform-only app (continuo-ops-ui, maestro-console, …) → PlatformUser only,
+        // 1) Platform-only app (tc-ops-ui, dev-support-console, …) → PlatformUser only,
         //    ortam fark etmez. Tenant/Customer reddedilir.
         if (isPlatformOnlyApp) {
             if (credential.OwnerType == CredentialOwnerType.PlatformUser) {
@@ -605,7 +684,7 @@ public class AuthController : ControllerBase {
 
         // Helper: credential'in tenant slug'i (slug-first, code-fallback) — eski
         // guard sadece code karsilastiriyor, slug != code durumunda (seeded
-        // t-001/default gibi) gercek tenant kullanicisini reddediyordu.
+        // t-001/continuo gibi) gercek tenant kullanicisini reddediyordu.
         string? GetCredentialTenantKey() {
             var t = credential.OwnerType switch {
                 CredentialOwnerType.TenantUser => credential.TenantUser?.Tenant,
@@ -624,7 +703,7 @@ public class AuthController : ControllerBase {
         }
 
         // 2) Env-prefix URL'leri (dev-/staging-/test-) — staff/tenant-admin/customer:
-        //    * env-tenant (dev-tenant1.…): tenantSlug var → console-admin gibi
+        //    * env-tenant (dev-continuo.…): tenantSlug var → console-admin gibi
         //      tenant admin app'lerinde TenantUser kendi slug'iyle girer; qrmenu-*
         //      app'lerinde Customer ana-tenant != islem-tenant olabilir (musteri
         //      A tenant'inda kayitli, B tenant'inin subesinden siparis verir —
@@ -856,12 +935,12 @@ public class AuthController : ControllerBase {
             appId = HttpContext.Request.Headers["X-Client-App"].FirstOrDefault();
         }
 
-        var origin = HttpContext.Request.Headers["Origin"].FirstOrDefault();
+        var origin = resetOrigin;
         if (string.IsNullOrWhiteSpace(origin)) {
-            origin = HttpContext.Request.Headers["Referer"].FirstOrDefault();
+            origin = HttpContext.Request.Headers["Origin"].FirstOrDefault();
         }
         if (string.IsNullOrWhiteSpace(origin)) {
-            origin = resetOrigin;
+            origin = HttpContext.Request.Headers["Referer"].FirstOrDefault();
         }
 
         return new PasswordResetContext(

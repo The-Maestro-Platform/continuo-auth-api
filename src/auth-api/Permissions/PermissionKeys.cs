@@ -25,20 +25,51 @@ public static class PermissionKeys {
         public const string InfraVmControl = "platform.infra.vm.control";
         public const string InfraBootstrap = "platform.infra.bootstrap";
 
+        /// <summary>Manage platform-scope Metronome scheduled jobs (disk
+        /// cleanup, billing rollup, ML retrain). tc-ops-ui gates the
+        /// Metronome panel on this permission.</summary>
+        public const string MetronomeManage = "platform.metronome.manage";
+
+        /// <summary>Manage platform-scope Tempo workflow definitions +
+        /// instances (multi-step orchestrations spanning services).
+        /// tc-ops-ui gates the Tempo panel on this permission.</summary>
+        public const string TempoManage = "platform.tempo.manage";
+
+        /// <summary>Manage platform-wide FX margin (`forex.margin.default.pips`)
+        /// and read TCMB rate history + tenant audit. console-admin gates the
+        /// `/admin/forex` Margin Settings tab on this permission. See
+        /// `docs/todo/EXCHANGE_RATE_API_PLAN.md` §2.</summary>
+        public const string ForexManage = "platform.forex.manage";
+
+        /// <summary>Trigger TCMB FX refresh (POST /internal/refresh on
+        /// exchange-rate-api). Reserved for Tempo workflow + ops admin;
+        /// service-internal calls use M2M instead.</summary>
+        public const string ForexRefresh = "platform.forex.refresh";
+
         // Maestro AI Self-Service screen permissions.
         public const string MaestroUse = "platform.maestro.use";
         public const string MaestroContextAuthor = "platform.maestro.context.author";
         public const string MaestroPlaybookAuthor = "platform.maestro.playbook.author";
+        /// <summary>
+        /// Quota-bypass marker — when carried, maestro-api skips token-wallet
+        /// balance checks. Assigned to internal personnel (dev / analyst /
+        /// infraAdmin / platform.owner) so the platform team is never blocked
+        /// by the same monetisation that gates tenant + customer surfaces.
+        /// See <c>docs/todo/MAESTRO_TOKEN_WALLET_PLAN.md</c>.
+        /// </summary>
+        public const string MaestroUnlimited = "platform.maestro.unlimited";
+
+        /// <summary>Manage platform-level legal agreements (KVKK / Terms of
+        /// Use / Marketing Opt-in) shown to customers at signup/login. Gates
+        /// the tc-ops-ui Agreements admin panel and the auth-api admin CRUD
+        /// endpoints. Public active-list endpoint is anonymous.</summary>
+        public const string AgreementsManage = "platform.agreements.manage";
 
         // Track 3 — Portal SSO
         public const string PortalAccess = "platform.portal.access";
         public const string PortalEnvDev = "platform.portal.env.dev";
         public const string PortalEnvStaging = "platform.portal.env.staging";
         public const string PortalEnvProd = "platform.portal.env.prod";
-
-        // Platform branding/identity runtime config — backs the Platform
-        // Ayarları page in maestro-console. See docs/PLATFORM_SETTINGS_PLAN.md.
-        public const string SettingsManage = "platform.settings.manage";
     }
 
     public static class Ops {
@@ -48,13 +79,25 @@ public static class PermissionKeys {
         public const string ParametersWrite = "ops.parameters.write";
         public const string PublicWebManage = "ops.public-web.manage";
         public const string RolesManage = "ops.roles.manage";
-        // Doküman İzleme (tenant + platform DMS items) — continuo-ops-ui yeni modülü.
+        // Doküman İzleme (tenant + platform DMS items) — tc-ops-ui yeni modülü.
         public const string DocsView = "ops.docs.view";
 
-        // Maestro per-tenant management — continuo-ops-ui MaestroTenantManagementPanel.
+        // Maestro per-tenant management — tc-ops-ui MaestroTenantManagementPanel.
         // CRUD on tenant policies (quota/personality/allowed models) + role overrides.
         // See docs/todo/MAESTRO_TENANT_MANAGEMENT_PLAN.md.
         public const string MaestroTenantsManage = "ops.maestro.tenants.manage";
+
+        // Tenant catalog (module + package + plan-discount + entitlement + provision requests)
+        // — tc-ops-ui Phase 1-5 paneller. See docs/todo/TENANT_PACKAGES_AND_MODULES_PLAN.md.
+        public const string CatalogManage = "ops.catalog.manage";
+
+        // Platform billing (Invoice/PaymentTransaction/BankReconciliation) — tc-ops-ui
+        // InvoicesPanel. Phase 4.5 — same plan.
+        public const string BillingManage = "ops.billing.manage";
+
+        // Platform-Ops dashboard cross-tenant fleet view — Phase 6.
+        // See docs/todo/PLATFORM_OPS_DASHBOARD_PLAN.md.
+        public const string DashboardPlatformView = "ops.dashboard.platform.view";
     }
 
     public static class Tenant {
@@ -119,14 +162,40 @@ public static class PermissionKeys {
 
         // Maestro AI per-tenant usage. `MaestroUse` controls the floating-button
         // visibility + chat access; quota/personality enforced server-side by
-        // mae.MaestroTenantPolicy (managed via continuo-ops-ui by Ops.MaestroTenantsManage).
+        // mae.MaestroTenantPolicy (managed via tc-ops-ui by Ops.MaestroTenantsManage).
         public const string MaestroUse = "tenant.maestro.use";
         public const string MaestroContextAuthor = "tenant.maestro.context.author";
         public const string MaestroPlaybookAuthor = "tenant.maestro.playbook.author";
+        /// <summary>
+        /// TenantOwner-tier permission for the console-admin Settings → AI
+        /// Token Cüzdanı purchase flow. Grants visibility + purchase access
+        /// for the per-tenant token wallet; consumption (chat) is gated by
+        /// <see cref="MaestroUse"/>.
+        /// </summary>
+        public const string SettingsBillingManage = "tenant.settings.billing.manage";
+        /// <summary>Manage tenant-scope Metronome scheduled jobs (EOD Z report,
+        /// nightly summary email, etc.). TenantOwner + TenantAdmin tier.</summary>
+        public const string MetronomeManage = "tenant.metronome.manage";
 
-        // Tenant-scope overrides of platform branding (brand/assistant/domain
-        // hint/theme/logo). GitHub repo and User-Agent stay platform-only.
-        // See docs/PLATFORM_SETTINGS_PLAN.md.
-        public const string SettingsManage = "tenant.settings.manage";
+        /// <summary>Author tenant-scope Tempo workflows — multi-step business
+        /// orchestrations (sipariş checkout, EOD pipeline, vs.). TenantOwner +
+        /// TenantAdmin tier; OperationManager only gets the START variant.</summary>
+        public const string TempoManage = "tenant.tempo.manage";
+
+        /// <summary>Trigger an existing tenant-scope Tempo workflow manually
+        /// (without authoring rights). Lets a manager kick off pre-approved
+        /// workflows from console-admin / Maestro chat.</summary>
+        public const string TempoStart = "tenant.tempo.start";
+    }
+
+    /// <summary>
+    /// Customer-tier permission keys — assigned automatically to every
+    /// <c>CredentialOwnerType.Customer</c> credential at JWT issuance time so
+    /// authenticated qrmenu guests can chat with Maestro and buy tokens
+    /// without role-management overhead.
+    /// </summary>
+    public static class Customer {
+        public const string MaestroUse = "customer.maestro.use";
+        public const string MaestroBillingManage = "customer.maestro.billing.manage";
     }
 }
