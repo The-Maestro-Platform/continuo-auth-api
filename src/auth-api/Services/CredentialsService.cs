@@ -24,7 +24,13 @@ public class CredentialsService {
 
         var normalizedTenant = tenantCode?.Trim();
         if (!string.IsNullOrWhiteSpace(normalizedTenant)) {
-            query = query.Where(c => c.TenantUser != null && c.TenantUser.Tenant.Code == normalizedTenant);
+            // Owner-bypass callers (TenantOwner/PlatformOwner) reach the controller's
+            // non-scoped branch which forwards the *requested* identifier verbatim — and
+            // the UI sends the tenant slug ("default"), not the canonical code ("t-001").
+            // Non-owner console-admin callers instead get their tenant code from claims.
+            // Match either Code or Slug so both paths resolve the same tenant.
+            query = query.Where(c => c.TenantUser != null &&
+                (c.TenantUser.Tenant.Code == normalizedTenant || c.TenantUser.Tenant.Slug == normalizedTenant));
         }
 
         if (allowedBranchCodes is { Count: > 0 }) {

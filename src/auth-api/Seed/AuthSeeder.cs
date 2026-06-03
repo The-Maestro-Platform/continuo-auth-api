@@ -228,7 +228,11 @@ public static class AuthSeeder {
         new("console-admin", "/menu/tax-settings", "Menü Vergi Ayarları", "Kategori/ürün KDV oran yönetimi", new[] { "tenant.accounting.manage" }, "/menu/tax-settings", "calculator", "Core", 91),
         new("console-admin", "/users", "Users & Roles", "Kullanıcı ve rol yönetimi", Array.Empty<string>(), "/users", "user", "Core", 100),
         new("console-admin", "/analytics", "Analytics", "Analitik ve raporlar", Array.Empty<string>(), "/analytics", "bar-chart", "Core", 110),
-        new("console-admin", "/fatura", "Invoices", "Fatura işlemleri", Array.Empty<string>(), "/fatura", "file-text", "Core", 120),
+        // ScreenKey stays "/fatura" so the upsert (keyed on AppCode::ScreenKey) repoints the
+        // existing nav row instead of orphaning it; the live Path now targets the rich
+        // E-Fatura İzleme screen (/invoices). The standalone /fatura issue page was retired —
+        // issuing now lives inside /invoices as the "Fatura Kes" action.
+        new("console-admin", "/fatura", "Invoices", "Fatura izleme ve kesme", new[] { "tenant.accounting.manage" }, "/invoices", "file-text", "Core", 120),
         new("console-admin", "/reservations", "Reservations", "Rezervasyon yönetimi", Array.Empty<string>(), "/reservations", "calendar", "Core", 130),
         new("console-admin", "/network", "Network", "Ağ ve bağlantı ayarları", Array.Empty<string>(), "/network", "cloud", "Core", 140),
         new("console-admin", "/robots", "Robots", "Robot yönetimi", Array.Empty<string>(), "/robots", "robot", "Core", 150),

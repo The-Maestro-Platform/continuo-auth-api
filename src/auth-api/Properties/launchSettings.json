@@ -8,7 +8,7 @@
         "MSSQL__HOST": "94.73.170.39",
         "MSSQL__SA_PASSWORD": "T9glh-wlA8MufkGm",
         "MSSQL__PORT": "1433",
-        "MSSQL__DB": "tcafe",
+        "MSSQL__DB": "continuo",
         "JWT__ISSUER": "continuo.local",
         "JWT__AUDIENCE": "continuo.clients",
         "JWT__SECRET": "dev-secret-change-me-0123456789-very-long-and-random-987654321",
