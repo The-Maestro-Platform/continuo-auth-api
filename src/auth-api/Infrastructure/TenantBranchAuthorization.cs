@@ -4,29 +4,49 @@ using Continuo.Shared.Security;
 namespace AuthApi.Infrastructure;
 
 public readonly record struct TenantBranchActorScope(
+    bool IsPlatformBypass,
     bool IsOwnerBypass,
     bool IsConsoleAdminRequest,
     string? TenantCode,
+    IReadOnlySet<string> TenantCodes,
     IReadOnlySet<string> BranchCodes) {
     public bool RequiresTenantScope => IsConsoleAdminRequest && !IsOwnerBypass;
     public bool RequiresBranchScope => IsConsoleAdminRequest && !IsOwnerBypass;
 }
 
 public static class TenantBranchAuthorization {
-    private static readonly PlatformRole[] OwnerRoles = { PlatformRole.PlatformOwner, PlatformRole.TenantOwner };
+    // Platform-level actors may cross tenant boundaries (manage any tenant's users/roles).
+    private static readonly PlatformRole[] PlatformBypassRoles = { PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin };
 
     public static TenantBranchActorScope Resolve(HttpContext context, ITenantContext tenantContext, IConfiguration configuration) {
         var ownerLogin = configuration["AUTH_OWNER_LOGIN"] ?? "platform.owner@example.local";
-        var isOwnerBypass = ClaimsHelper.IsOwnerLogin(context.User, ownerLogin) || ClaimsHelper.HasAnyRole(context, OwnerRoles);
+        // IsPlatformBypass: cross-tenant authority (platform owner/admin or the configured owner login).
+        var isPlatformBypass = ClaimsHelper.IsOwnerLogin(context.User, ownerLogin)
+            || ClaimsHelper.HasAnyRole(context, PlatformBypassRoles);
+        // IsOwnerBypass: branch-level bypass. A TenantOwner manages every branch *within their own
+        // tenant* but must NOT see or touch other tenants — tenant scoping below still applies to them.
+        var isOwnerBypass = isPlatformBypass || ClaimsHelper.HasAnyRole(context, PlatformRole.TenantOwner);
 
         var clientApp = context.Request.Headers["X-Client-App"].FirstOrDefault();
         var isConsoleAdminRequest = string.Equals(clientApp, "console-admin", StringComparison.OrdinalIgnoreCase);
 
-        var tenantCode = NormalizeTenantCode(tenantContext.TenantCode);
+        // Collect every tenant identifier the actor carries (the JWT holds both tenant_code "t-001"
+        // and tenant_slug "default"); match against either so slug/code mismatches don't lock out
+        // a legitimate tenant admin.
+        var tenantCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var contextTenant = NormalizeTenantCode(tenantContext.TenantCode);
+        if (!string.IsNullOrWhiteSpace(contextTenant)) {
+            tenantCodes.Add(contextTenant);
+        }
+        foreach (var code in ClaimsHelper.GetTenantCodes(context.User).Select(NormalizeTenantCode)) {
+            if (!string.IsNullOrWhiteSpace(code)) {
+                tenantCodes.Add(code!);
+            }
+        }
+
+        var tenantCode = contextTenant;
         if (string.IsNullOrWhiteSpace(tenantCode)) {
-            tenantCode = ClaimsHelper.GetTenantCodes(context.User)
-                .Select(NormalizeTenantCode)
-                .FirstOrDefault(code => !string.IsNullOrWhiteSpace(code));
+            tenantCode = tenantCodes.FirstOrDefault();
         }
 
         var branchCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -37,9 +57,11 @@ public static class TenantBranchAuthorization {
         }
 
         return new TenantBranchActorScope(
+            IsPlatformBypass: isPlatformBypass,
             IsOwnerBypass: isOwnerBypass,
             IsConsoleAdminRequest: isConsoleAdminRequest,
             TenantCode: tenantCode,
+            TenantCodes: tenantCodes,
             BranchCodes: branchCodes);
     }
 
@@ -97,23 +119,32 @@ public static class TenantBranchAuthorization {
     }
 
     public static bool IsTenantAllowed(TenantBranchActorScope scope, string? tenantCode) {
-        if (scope.IsOwnerBypass) {
+        // Only platform-level actors cross tenants. TenantOwner is NOT a tenant bypass here —
+        // their own tenant must appear in the actor's tenant identifier set.
+        if (scope.IsPlatformBypass) {
             return true;
         }
 
-        if (string.IsNullOrWhiteSpace(scope.TenantCode)) {
+        var target = NormalizeTenantCode(tenantCode);
+        if (string.IsNullOrWhiteSpace(target)) {
             return false;
         }
 
-        return IsTenantMatch(scope.TenantCode, tenantCode);
+        if (scope.TenantCodes.Count > 0) {
+            return scope.TenantCodes.Any(code => IsTenantMatch(code, target));
+        }
+
+        return IsTenantMatch(scope.TenantCode, target);
     }
 
     public static bool IsTenantUserInScope(TenantBranchActorScope scope, TenantUser user) {
-        if (scope.IsOwnerBypass) {
+        if (scope.IsPlatformBypass) {
             return true;
         }
 
-        if (!IsTenantAllowed(scope, user.Tenant?.Code)) {
+        // Match either the tenant's canonical code or its slug — the actor's claims may carry
+        // whichever form, and a TenantOwner must remain locked to their own tenant.
+        if (!IsTenantAllowed(scope, user.Tenant?.Code) && !IsTenantAllowed(scope, user.Tenant?.Slug)) {
             return false;
         }
 

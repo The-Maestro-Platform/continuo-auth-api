@@ -14,12 +14,11 @@ namespace AuthApi.Controllers;
 public class RolesController : ControllerBase {
     private readonly RolesService _roles;
     private readonly IConfiguration _configuration;
-    private static readonly string[] PlatformRolesManagePermissions = [
+    // Role definition + screen/permission assignment is a platform-administration concern.
+    // Tenant admins (TenantOwner/TenantAdmin) can only *assign existing roles to users*
+    // (see TenantUsersController/CredentialsController), not author roles or grant screens.
+    private static readonly string[] RolesManagePermissions = [
         PermissionKeys.Platform.AuthRolesManage
-    ];
-    private static readonly string[] TenantRolesManagePermissions = [
-        PermissionKeys.Platform.AuthRolesManage,
-        PermissionKeys.Tenant.UsersManage
     ];
 
     public RolesController(RolesService roles, IConfiguration configuration) {
@@ -153,10 +152,7 @@ public class RolesController : ControllerBase {
     }
 
     private bool CanManageScope(RoleScope scope) {
-        if (scope == RoleScope.Platform) {
-            return PermissionAuthorization.HasAnyPermission(HttpContext, _configuration, PlatformRolesManagePermissions);
-        }
-
-        return PermissionAuthorization.HasAnyPermission(HttpContext, _configuration, TenantRolesManagePermissions);
+        // Both platform- and tenant-scoped role definitions require platform-level authority.
+        return PermissionAuthorization.HasAnyPermission(HttpContext, _configuration, RolesManagePermissions);
     }
 }

@@ -61,13 +61,14 @@ public class TenantUsersController : ControllerBase {
             }
 
             if (!string.IsNullOrWhiteSpace(requestedTenantCode) &&
-                !TenantBranchAuthorization.IsTenantMatch(requestedTenantCode, actorScope.TenantCode)) {
+                !TenantBranchAuthorization.IsTenantAllowed(actorScope, requestedTenantCode)) {
                 return Forbid();
             }
 
             effectiveTenantCode = actorScope.TenantCode;
         }
-        else if (actorScope.IsOwnerBypass || ClaimsHelper.HasAnyRole(HttpContext, "PlatformOwner", "PlatformAdmin")) {
+        else if (actorScope.IsPlatformBypass) {
+            // Only platform actors may target an arbitrary tenant. TenantOwner falls through below.
             effectiveTenantCode = requestedTenantCode;
         }
         else {
@@ -88,7 +89,9 @@ public class TenantUsersController : ControllerBase {
 
         if (!string.IsNullOrWhiteSpace(effectiveTenantCode)) {
             var normalized = effectiveTenantCode.Trim();
-            query = query.Where(u => u.Tenant.Code == normalized);
+            // Match code or slug — the UI sends the slug ("default") while the canonical
+            // tenant code is "t-001"; both must resolve to the same tenant.
+            query = query.Where(u => u.Tenant.Code == normalized || u.Tenant.Slug == normalized);
         }
 
         if (!actorScope.IsOwnerBypass && actorScope.BranchCodes.Count > 0) {
@@ -555,19 +558,13 @@ public class TenantUsersController : ControllerBase {
     }
 
     private static bool CanAccessTenant(TenantBranchActorScope actorScope, string? tenantCode) {
-        if (actorScope.IsOwnerBypass) {
-            return true;
-        }
-
-        if (string.IsNullOrWhiteSpace(tenantCode) || string.IsNullOrWhiteSpace(actorScope.TenantCode)) {
-            return false;
-        }
-
-        return TenantBranchAuthorization.IsTenantMatch(actorScope.TenantCode, tenantCode);
+        // Tenant-crossing decision: only platform actors bypass. TenantOwner must match their own
+        // tenant (IsTenantAllowed checks the full code/slug identifier set).
+        return TenantBranchAuthorization.IsTenantAllowed(actorScope, tenantCode);
     }
 
     private static bool CanManageTenantUser(TenantBranchActorScope actorScope, TenantUser user) {
-        if (actorScope.IsOwnerBypass) {
+        if (actorScope.IsPlatformBypass) {
             return true;
         }
 

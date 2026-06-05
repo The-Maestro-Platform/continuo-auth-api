@@ -70,7 +70,7 @@ public class CredentialsController : ControllerBase {
             }
 
             if (!string.IsNullOrWhiteSpace(requestedTenantCode) &&
-                !TenantBranchAuthorization.IsTenantMatch(requestedTenantCode, actorScope.TenantCode)) {
+                !TenantBranchAuthorization.IsTenantAllowed(actorScope, requestedTenantCode)) {
                 return Forbid();
             }
 
@@ -85,7 +85,9 @@ public class CredentialsController : ControllerBase {
             }
         }
         else {
-            var canViewAllTenants = actorScope.IsOwnerBypass || ClaimsHelper.HasAnyRole(HttpContext, "PlatformOwner", "PlatformAdmin");
+            // Only platform-level actors can view across tenants. A TenantOwner (IsOwnerBypass but
+            // NOT IsPlatformBypass) is pinned to their own tenant code, ignoring any requested code.
+            var canViewAllTenants = actorScope.IsPlatformBypass;
             effectiveTenantCode = canViewAllTenants ? requestedTenantCode : actorScope.TenantCode;
 
             if (!canViewAllTenants && string.IsNullOrWhiteSpace(effectiveTenantCode)) {
@@ -267,19 +269,13 @@ public class CredentialsController : ControllerBase {
     }
 
     private static bool CanAccessTenant(TenantBranchActorScope actorScope, string requestedTenantCode) {
-        if (actorScope.IsOwnerBypass) {
-            return true;
-        }
-
-        if (string.IsNullOrWhiteSpace(actorScope.TenantCode)) {
-            return false;
-        }
-
-        return TenantBranchAuthorization.IsTenantMatch(actorScope.TenantCode, requestedTenantCode);
+        // Tenant-crossing decision: only platform actors bypass. TenantOwner must match their own
+        // tenant (matched against the full code/slug identifier set).
+        return TenantBranchAuthorization.IsTenantAllowed(actorScope, requestedTenantCode);
     }
 
     private static bool CanManageCredential(TenantBranchActorScope actorScope, Credential credential) {
-        if (actorScope.IsOwnerBypass) {
+        if (actorScope.IsPlatformBypass) {
             return true;
         }
 

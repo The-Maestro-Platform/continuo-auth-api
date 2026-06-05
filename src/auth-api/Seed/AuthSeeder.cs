@@ -204,8 +204,15 @@ public static class AuthSeeder {
             new[] { "ops.billing.manage" }, "/operations", "wallet", "Catalog", 285),
         new("tc-ops-ui", "platform-ops", "Platform Ops Paneli", "Tenant filo watchlist, MRR, modül adopsiyon, risk + onay durumu (cross-tenant)",
             new[] { "ops.dashboard.platform.view" }, "/operations", "layout-dashboard", "Platform", 290),
-        new("tc-ops-ui", "/operations/agreements", "Sözleşmeler", "KVKK, Kullanım Koşulları ve Pazarlama İzni metinlerini yönet ve versiyonla",
-            new[] { "platform.agreements.manage" }, "/operations/agreements", "file-text", "Platform", 295),
+        // ScreenKey, operations workbench panel id'siyle (platform-agreements) eşleşmeli:
+        // tc-ops-ui sidebar nav item'ları page.tsx'te panelIds.has(item.id)'e göre
+        // filtreleniyor (NavigationItem.Id = ScreenKey). Önceki ScreenKey "/operations/agreements"
+        // bir panel id'si olmadığı için item sessizce eleniyor ve menüde hiç görünmüyordu;
+        // panel sadece direct-URL ile erişilebiliyordu. Path da /operations'a alındı → panel
+        // diğerleri gibi sekme olarak açılır. (Eski "/operations/agreements" screen satırı
+        // EnsureScreensAsync prune etmediği için DB'de orphan kalır ama zaten görünmüyordu.)
+        new("tc-ops-ui", "platform-agreements", "Platform Sözleşmeleri", "Signup/login sırasında müşteriye gösterilen platform sözleşmeleri (Hizmet Abonelik, KVKK, Kullanım Koşulları, Pazarlama) — markdown editör, token render ve versiyonlama",
+            new[] { "platform.agreements.manage" }, "/operations", "file-text", "Platform", 295),
 
         // console-admin – tenant admin ekranları
         new("console-admin", "/", "Dashboard", "Tenant genel görünümü", Array.Empty<string>(), "/", "home", "Core", 10),
@@ -228,11 +235,10 @@ public static class AuthSeeder {
         new("console-admin", "/menu/tax-settings", "Menü Vergi Ayarları", "Kategori/ürün KDV oran yönetimi", new[] { "tenant.accounting.manage" }, "/menu/tax-settings", "calculator", "Core", 91),
         new("console-admin", "/users", "Users & Roles", "Kullanıcı ve rol yönetimi", Array.Empty<string>(), "/users", "user", "Core", 100),
         new("console-admin", "/analytics", "Analytics", "Analitik ve raporlar", Array.Empty<string>(), "/analytics", "bar-chart", "Core", 110),
-        // ScreenKey stays "/fatura" so the upsert (keyed on AppCode::ScreenKey) repoints the
-        // existing nav row instead of orphaning it; the live Path now targets the rich
-        // E-Fatura İzleme screen (/invoices). The standalone /fatura issue page was retired —
-        // issuing now lives inside /invoices as the "Fatura Kes" action.
-        new("console-admin", "/fatura", "Invoices", "Fatura izleme ve kesme", new[] { "tenant.accounting.manage" }, "/invoices", "file-text", "Core", 120),
+        // E-Fatura İzleme (+ "Fatura Kes" action). Renamed from the legacy "/fatura" screen
+        // key/path — the standalone /fatura issue page was retired. The legacy "/fatura" row is
+        // removed by RetiredScreens cleanup in EnsureScreensAsync so it doesn't linger in nav.
+        new("console-admin", "/invoices", "Invoices", "Fatura izleme ve kesme", new[] { "tenant.accounting.manage" }, "/invoices", "file-text", "Core", 120),
         new("console-admin", "/reservations", "Reservations", "Rezervasyon yönetimi", Array.Empty<string>(), "/reservations", "calendar", "Core", 130),
         new("console-admin", "/network", "Network", "Ağ ve bağlantı ayarları", Array.Empty<string>(), "/network", "cloud", "Core", 140),
         new("console-admin", "/robots", "Robots", "Robot yönetimi", Array.Empty<string>(), "/robots", "robot", "Core", 150),
@@ -467,6 +473,15 @@ public static class AuthSeeder {
         await db.SaveChangesAsync();
     }
 
+    // Screens that were renamed or removed and must be deleted from the DB if a previous
+    // seed created them. Targeted on purpose — we never blanket-delete "everything not in
+    // Screens[]" because operators author custom screens via the UI (ScreenRoles/ScreenUsers).
+    private static readonly (string AppCode, string ScreenKey)[] RetiredScreens =
+    {
+        // Renamed to "/invoices" (E-Fatura İzleme); the old minimal /fatura issue page was retired.
+        ("console-admin", "/fatura"),
+    };
+
     private static async Task EnsureScreensAsync(AuthDbContext db) {
         var existing = await db.Screens.ToListAsync();
         var lookup = existing.ToDictionary(
@@ -506,6 +521,18 @@ public static class AuthSeeder {
                 screen.SortOrder = seed.SortOrder;
                 screen.IsSystem = seed.IsSystem;
             }
+        }
+
+        // Drop retired/renamed screens (+ their role/user assignments) left over from older seeds.
+        foreach (var (appCode, screenKey) in RetiredScreens) {
+            if (!lookup.TryGetValue($"{appCode}::{screenKey}".ToLowerInvariant(), out var stale) || stale.Id == default) {
+                continue;
+            }
+            var staleRoleLinks = await db.ScreenRoles.Where(sr => sr.ScreenId == stale.Id).ToListAsync();
+            var staleUserLinks = await db.ScreenUsers.Where(su => su.ScreenId == stale.Id).ToListAsync();
+            db.ScreenRoles.RemoveRange(staleRoleLinks);
+            db.ScreenUsers.RemoveRange(staleUserLinks);
+            db.Screens.Remove(stale);
         }
 
         await db.SaveChangesAsync();
