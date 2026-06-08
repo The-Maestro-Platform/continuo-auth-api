@@ -2,7 +2,7 @@ namespace AuthApi.Contracts.Requests;
 
 /// <summary>
 /// Create a brand-new active version for a given <c>Code</c>. Auto-deactivates
-/// previous active row. Used by tc-ops-ui "Yeni Versiyon Yayınla" action.
+/// previous active row. Used by continuo-ops-ui "Yeni Versiyon Yayınla" action.
 /// </summary>
 public record CreatePlatformAgreementRequest(
     string Code,

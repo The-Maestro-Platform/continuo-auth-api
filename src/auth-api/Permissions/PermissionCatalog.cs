@@ -11,7 +11,6 @@ public static class PermissionCatalog {
         new(PermissionKeys.Platform.ParametersManage, "Manage Global Parameters", "Adjust system-wide configuration and parameter store.", RoleScope.Platform),
         new(PermissionKeys.Platform.SecurityManage, "Manage Security Vault", "Manage encrypted credentials, connection strings and platform secrets.", RoleScope.Platform),
         new(PermissionKeys.Platform.SecurityReveal, "Reveal Security Secrets", "Reveal plaintext secrets (restricted to platform owner).", RoleScope.Platform),
-        new(PermissionKeys.Platform.TccManage, "Manage TCC Operations", "Operate global TCC treasury, rewards and wallet caps.", RoleScope.Platform),
         new(PermissionKeys.Platform.LogsView, "View System Logs", "Inspect logs and audits across tenants.", RoleScope.Platform),
         new(PermissionKeys.Platform.SupportImpersonate, "Impersonate Tenant User", "Temporarily act on behalf of a tenant user for support.", RoleScope.Platform),
         new(PermissionKeys.Platform.SupportSeleniumRun, "Run Selenium Tests", "Queue, run and manage Selenium runner test catalog, scenarios and flows from the support console.", RoleScope.Platform),
@@ -35,11 +34,11 @@ public static class PermissionCatalog {
         new(PermissionKeys.Platform.MaestroContextAuthor, "Author Maestro Contexts", "Create and edit reusable Maestro contexts (system prompts + knowledge sources) for personal or team use.", RoleScope.Platform),
         new(PermissionKeys.Platform.MaestroPlaybookAuthor, "Author Maestro Playbooks", "Create, version and activate Maestro playbooks consumed by the task engine.", RoleScope.Platform),
         new(PermissionKeys.Platform.MaestroUnlimited, "Maestro Unlimited Quota", "Bypass the token-wallet check entirely — internal personnel marker (dev / analyst / infraAdmin / owner). Holders never see a wallet-empty cache-mode reply.", RoleScope.Platform),
-        new(PermissionKeys.Platform.MetronomeManage, "Manage Scheduled Jobs (Metronome)", "Create / edit / disable platform-scope Metronome scheduled jobs. Required to access the tc-ops-ui Metronome panel and define cross-tenant operational jobs.", RoleScope.Platform),
-        new(PermissionKeys.Platform.TempoManage, "Manage Workflows (Tempo)", "Author / edit / disable platform-scope Tempo workflow definitions and view all instances across tenants. Required for the tc-ops-ui Tempo panel.", RoleScope.Platform),
+        new(PermissionKeys.Platform.MetronomeManage, "Manage Scheduled Jobs (Metronome)", "Create / edit / disable platform-scope Metronome scheduled jobs. Required to access the continuo-ops-ui Metronome panel and define cross-tenant operational jobs.", RoleScope.Platform),
+        new(PermissionKeys.Platform.TempoManage, "Manage Workflows (Tempo)", "Author / edit / disable platform-scope Tempo workflow definitions and view all instances across tenants. Required for the continuo-ops-ui Tempo panel.", RoleScope.Platform),
         new(PermissionKeys.Platform.ForexManage, "Manage Forex Margin", "Adjust platform-wide FX margin (`forex.margin.default.pips`) and view TCMB rate history + change audit. Required for the console-admin `/admin/forex` Margin Settings tab.", RoleScope.Platform),
         new(PermissionKeys.Platform.ForexRefresh, "Trigger Forex Refresh", "Trigger an on-demand TCMB FX feed refresh (POST /internal/refresh on exchange-rate-api). Used by Tempo workflow + ops debug; service-internal callers use M2M instead.", RoleScope.Platform),
-        new(PermissionKeys.Platform.AgreementsManage, "Manage Legal Agreements", "Edit and version the platform-level legal agreements (KVKK Aydınlatma, Kullanım Koşulları, Pazarlama İzni) shown to customers at signup/login. tc-ops-ui Agreements panel + auth-api admin CRUD endpoints.", RoleScope.Platform),
+        new(PermissionKeys.Platform.AgreementsManage, "Manage Legal Agreements", "Edit and version the platform-level legal agreements (KVKK Aydınlatma, Kullanım Koşulları, Pazarlama İzni) shown to customers at signup/login. continuo-ops-ui Agreements panel + auth-api admin CRUD endpoints.", RoleScope.Platform),
 
         // Portal access (multi-env developer portal — dev-support-console environment switch).
         new(PermissionKeys.Platform.PortalAccess, "Access Developer Portal", "Open the dev-support-console / developer portal landing and pick a target environment.", RoleScope.Platform),
@@ -47,7 +46,7 @@ public static class PermissionCatalog {
         new(PermissionKeys.Platform.PortalEnvStaging, "Portal: Staging Environment", "Enter the Staging environment from the developer portal.", RoleScope.Platform),
         new(PermissionKeys.Platform.PortalEnvProd, "Portal: Production Environment", "Enter the Production environment from the developer portal — production access (restricted).", RoleScope.Platform),
 
-        // tc-ops-ui (operations) module permissions
+        // continuo-ops-ui (operations) module permissions
         new(PermissionKeys.Ops.AnalyticsView, "View Tenant Analytics", "Access tenant analytics and KPI reporting in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.LayoutsManage, "Manage Tenant Layouts", "Manage tenant layouts, theming and client app access in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.MlConfigure, "Configure ML", "Manage ML definitions, languages and translations in Ops UI.", RoleScope.Platform),
@@ -56,9 +55,9 @@ public static class PermissionCatalog {
         new(PermissionKeys.Ops.RolesManage, "Manage Ops Roles", "Manage role/screen mappings in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.DocsView, "View Documents", "Browse tenant and platform documents (DMS) in Ops UI.", RoleScope.Platform),
         new(PermissionKeys.Ops.MaestroTenantsManage, "Manage Maestro Tenants", "Configure per-tenant Maestro AI policies: usage capacity, daily/monthly USD cap, token cap, allowed providers, role-scoped overrides and personality presets.", RoleScope.Platform),
-        // tc-ops-ui catalog admin (ModuleCatalog, PackageCatalog, PlanDiscount, TenantEntitlement, TenantCreate wizard, ProvisionRequests approval).
+        // continuo-ops-ui catalog admin (ModuleCatalog, PackageCatalog, PlanDiscount, TenantEntitlement, TenantCreate wizard, ProvisionRequests approval).
         new(PermissionKeys.Ops.CatalogManage, "Manage Tenant Catalog", "Manage the modules / packages / discounts catalog, tenant entitlements and the provision-request approval queue in Ops UI.", RoleScope.Platform),
-        // tc-ops-ui billing admin (Invoices panel, PaymentProviderSettings panel).
+        // continuo-ops-ui billing admin (Invoices panel, PaymentProviderSettings panel).
         new(PermissionKeys.Ops.BillingManage, "Manage Platform Billing", "Manage subscription invoices, IBAN reconciliation and tenant payment provider settings (IBAN / Iyzico) in Ops UI.", RoleScope.Platform),
         // Platform Ops Dashboard (fleet overview, MRR, module adoption, conversion funnel).
         new(PermissionKeys.Ops.DashboardPlatformView, "View Platform Ops Dashboard", "View the cross-tenant Platform Ops dashboard — fleet watchlist, MRR trend, module adoption, conversion funnel.", RoleScope.Platform)
@@ -75,7 +74,6 @@ public static class PermissionCatalog {
         new(PermissionKeys.Tenant.AccountingManage, "Manage Accounting", "Control accounting workflows and billing reconciliation.", RoleScope.Tenant),
         new(PermissionKeys.Tenant.BranchManage, "Manage Branch Users", "Onboard or update dealer and branch staff.", RoleScope.Tenant),
         new(PermissionKeys.Tenant.SetupTrack, "Track Setup Progress", "Track tenant onboarding and setup checklist progress.", RoleScope.Tenant),
-        new(PermissionKeys.Tenant.TccManage, "Manage Tenant TCC", "Operate tenant-scoped TCC programs and wallets.", RoleScope.Tenant),
         // Inventory
         new(PermissionKeys.Tenant.InventoryView, "View Inventory", "View stock levels and inventory items.", RoleScope.Tenant),
         new(PermissionKeys.Tenant.InventoryManage, "Manage Inventory", "Add, update or adjust inventory items.", RoleScope.Tenant),

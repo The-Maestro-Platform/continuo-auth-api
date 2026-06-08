@@ -20,10 +20,8 @@ public sealed class PasswordResetService {
     private const int TokenTtlMinutes = 30;
     private const int MaxAttempts = 5;
     private static readonly HashSet<string> PlatformOnlyApps = new(StringComparer.OrdinalIgnoreCase) {
-        "tc-ops-ui",
+        "continuo-ops-ui",
         "dev-support-console",
-        "tcc-ops-ui",
-        "tcc-ui"
     };
     private static readonly HashSet<string> CustomerFacingApps = new(StringComparer.OrdinalIgnoreCase) {
         "qrmenu-web",
@@ -331,8 +329,7 @@ public sealed class PasswordResetService {
         if (PlatformOnlyApps.Contains(appId)) {
             return appId switch {
                 "dev-support-console" => string.Equals(resetPath, "/devops/reset-password", StringComparison.Ordinal),
-                "tc-ops-ui" => string.Equals(resetPath, "/ops/reset-password", StringComparison.Ordinal),
-                "tcc-ops-ui" or "tcc-ui" => string.Equals(resetPath, "/tcc/reset-password", StringComparison.Ordinal),
+                "continuo-ops-ui" => string.Equals(resetPath, "/ops/reset-password", StringComparison.Ordinal),
                 _ => false
             };
         }

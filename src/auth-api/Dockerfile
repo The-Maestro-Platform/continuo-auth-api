@@ -4,7 +4,7 @@ WORKDIR /src
 
 # Copy repo and restore within service folder
 COPY . .
-WORKDIR /src/services/auth-api
+WORKDIR /src/src/auth-api
 RUN dotnet restore "auth-api.csproj"
 RUN dotnet publish "auth-api.csproj" -c Release -o /app/publish
 

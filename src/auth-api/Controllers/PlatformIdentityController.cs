@@ -26,7 +26,7 @@ public class PlatformIdentityController : ControllerBase {
         _configuration = configuration;
     }
 
-    /// <summary>Admin read — used by tc-ops-ui Şirket Bilgileri card.</summary>
+    /// <summary>Admin read — used by continuo-ops-ui Şirket Bilgileri card.</summary>
     [HttpGet("auth/admin/platform-identity")]
     [Authorize]
     [ContinuoProxyMethod("ui")]

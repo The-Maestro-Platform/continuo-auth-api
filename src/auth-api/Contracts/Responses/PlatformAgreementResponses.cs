@@ -1,6 +1,6 @@
 namespace AuthApi.Contracts.Responses;
 
-/// <summary>Admin (tc-ops-ui) row + public (qrmenu-mobile / qrmenu-web) row.
+/// <summary>Admin (continuo-ops-ui) row + public (qrmenu-mobile / qrmenu-web) row.
 /// Same shape — admin lists also include inactive history rows.</summary>
 public record PlatformAgreementResponse(
     string Id,

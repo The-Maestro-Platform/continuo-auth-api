@@ -6,7 +6,6 @@ public static class PermissionKeys {
         public const string ParametersManage = "platform.parameters.manage";
         public const string SecurityManage = "platform.security.manage";
         public const string SecurityReveal = "platform.security.reveal";
-        public const string TccManage = "platform.tcc.manage";
         public const string LogsView = "platform.logs.view";
         public const string SupportImpersonate = "platform.support.impersonate";
         public const string SupportSeleniumRun = "platform.support.selenium.run";
@@ -26,13 +25,13 @@ public static class PermissionKeys {
         public const string InfraBootstrap = "platform.infra.bootstrap";
 
         /// <summary>Manage platform-scope Metronome scheduled jobs (disk
-        /// cleanup, billing rollup, ML retrain). tc-ops-ui gates the
+        /// cleanup, billing rollup, ML retrain). continuo-ops-ui gates the
         /// Metronome panel on this permission.</summary>
         public const string MetronomeManage = "platform.metronome.manage";
 
         /// <summary>Manage platform-scope Tempo workflow definitions +
         /// instances (multi-step orchestrations spanning services).
-        /// tc-ops-ui gates the Tempo panel on this permission.</summary>
+        /// continuo-ops-ui gates the Tempo panel on this permission.</summary>
         public const string TempoManage = "platform.tempo.manage";
 
         /// <summary>Manage platform-wide FX margin (`forex.margin.default.pips`)
@@ -61,7 +60,7 @@ public static class PermissionKeys {
 
         /// <summary>Manage platform-level legal agreements (KVKK / Terms of
         /// Use / Marketing Opt-in) shown to customers at signup/login. Gates
-        /// the tc-ops-ui Agreements admin panel and the auth-api admin CRUD
+        /// the continuo-ops-ui Agreements admin panel and the auth-api admin CRUD
         /// endpoints. Public active-list endpoint is anonymous.</summary>
         public const string AgreementsManage = "platform.agreements.manage";
 
@@ -79,19 +78,19 @@ public static class PermissionKeys {
         public const string ParametersWrite = "ops.parameters.write";
         public const string PublicWebManage = "ops.public-web.manage";
         public const string RolesManage = "ops.roles.manage";
-        // Doküman İzleme (tenant + platform DMS items) — tc-ops-ui yeni modülü.
+        // Doküman İzleme (tenant + platform DMS items) — continuo-ops-ui yeni modülü.
         public const string DocsView = "ops.docs.view";
 
-        // Maestro per-tenant management — tc-ops-ui MaestroTenantManagementPanel.
+        // Maestro per-tenant management — continuo-ops-ui MaestroTenantManagementPanel.
         // CRUD on tenant policies (quota/personality/allowed models) + role overrides.
         // See docs/todo/MAESTRO_TENANT_MANAGEMENT_PLAN.md.
         public const string MaestroTenantsManage = "ops.maestro.tenants.manage";
 
         // Tenant catalog (module + package + plan-discount + entitlement + provision requests)
-        // — tc-ops-ui Phase 1-5 paneller. See docs/todo/TENANT_PACKAGES_AND_MODULES_PLAN.md.
+        // — continuo-ops-ui Phase 1-5 paneller. See docs/todo/TENANT_PACKAGES_AND_MODULES_PLAN.md.
         public const string CatalogManage = "ops.catalog.manage";
 
-        // Platform billing (Invoice/PaymentTransaction/BankReconciliation) — tc-ops-ui
+        // Platform billing (Invoice/PaymentTransaction/BankReconciliation) — continuo-ops-ui
         // InvoicesPanel. Phase 4.5 — same plan.
         public const string BillingManage = "ops.billing.manage";
 
@@ -110,7 +109,6 @@ public static class PermissionKeys {
         public const string AccountingManage = "tenant.accounting.manage";
         public const string BranchManage = "tenant.branch.manage";
         public const string SetupTrack = "tenant.setup.track";
-        public const string TccManage = "tenant.tcc.manage";
 
         public const string InventoryView = "tenant.inventory.view";
         public const string InventoryManage = "tenant.inventory.manage";
@@ -162,7 +160,7 @@ public static class PermissionKeys {
 
         // Maestro AI per-tenant usage. `MaestroUse` controls the floating-button
         // visibility + chat access; quota/personality enforced server-side by
-        // mae.MaestroTenantPolicy (managed via tc-ops-ui by Ops.MaestroTenantsManage).
+        // mae.MaestroTenantPolicy (managed via continuo-ops-ui by Ops.MaestroTenantsManage).
         public const string MaestroUse = "tenant.maestro.use";
         public const string MaestroContextAuthor = "tenant.maestro.context.author";
         public const string MaestroPlaybookAuthor = "tenant.maestro.playbook.author";

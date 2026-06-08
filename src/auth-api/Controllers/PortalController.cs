@@ -19,7 +19,7 @@ namespace AuthApi.Controllers;
 [Route("auth/portal")]
 public class PortalController : ControllerBase {
     private static readonly HashSet<string> AllowedUis = new(StringComparer.OrdinalIgnoreCase) {
-        "console-admin", "tc-ops-ui", "dev-support-console", "qrmenu-web", "continuo-web"
+        "console-admin", "continuo-ops-ui", "dev-support-console", "qrmenu-web", "continuo-web"
     };
 
     private static readonly HashSet<string> AllowedEnvs = new(StringComparer.OrdinalIgnoreCase) {

@@ -4,7 +4,7 @@ namespace AuthApi.Models;
 /// Platform-level legal agreement displayed to customers at signup/login.
 /// One active row per <see cref="Code"/>; historical versions are kept with
 /// <see cref="IsActive"/>=false for audit. Bodies are markdown so the
-/// tc-ops-ui editor can render preview + copy unmodified to mobile/web.
+/// continuo-ops-ui editor can render preview + copy unmodified to mobile/web.
 /// </summary>
 public class PlatformAgreement {
     public Ulid Id { get; set; }

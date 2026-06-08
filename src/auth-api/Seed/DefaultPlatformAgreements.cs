@@ -6,11 +6,11 @@ namespace AuthApi.Seed;
 /// <summary>
 /// Idempotent platform-agreement seed. Inserts the canonical 3 agreements
 /// (Kullanım Koşulları, KVKK Aydınlatma, Ticari Elektronik İleti İzni) if no
-/// active version exists yet for a code. Existing edits made via tc-ops-ui
+/// active version exists yet for a code. Existing edits made via continuo-ops-ui
 /// are never overwritten — only the first-boot defaults are planted.
 /// <para>
 /// Hukuki sorumluluk: bu metinler kafe/SaaS sektörü için sektörel taslaktır.
-/// Platform sahibi (yayına çıkmadan) tc-ops-ui üzerinden hukuk danışmanı
+/// Platform sahibi (yayına çıkmadan) continuo-ops-ui üzerinden hukuk danışmanı
 /// onayı ile gözden geçirmeli ve şirket bilgilerini doldurmalıdır. KVKK
 /// Aydınlatma Yükümlülüğü m.10 + Ticari İletişim Yön. m.6 + İYS zorunluluğu
 /// bu metinlerin canlı tutulmasını zorunlu kılar.
@@ -86,7 +86,7 @@ public static class DefaultPlatformAgreements {
     // KULLANIM KOŞULLARI (üyelik sözleşmesi). 6563 sayılı Elektronik Ticaret
     // Kanunu + 6502 sayılı TKHK + 6098 sayılı TBK çerçevesinde mobil SaaS için
     // standart taslak. Şirket adı / adres / iletişim alanları {{token}} ile
-    // PlatformIdentity üzerinden gelir — tc-ops-ui Şirket Bilgileri ekranı.
+    // PlatformIdentity üzerinden gelir — continuo-ops-ui Şirket Bilgileri ekranı.
     // ----------------------------------------------------------------------
     private const string TermsBody = """
 # {{agreementTitle}}

@@ -30,16 +30,16 @@ public static class AuthSeeder {
                 "platform.auth.users.manage",
                 "platform.auth.screens.manage",
                 "platform.auth.roles.manage",
-                // tc-ops-ui MaestroTenantManagementPanel: configure per-tenant
+                // continuo-ops-ui MaestroTenantManagementPanel: configure per-tenant
                 // Maestro quota, persona and allowed models.
                 "ops.maestro.tenants.manage",
-                // tc-ops-ui Platform Agreements admin panel.
+                // continuo-ops-ui Platform Agreements admin panel.
                 "platform.agreements.manage"
             }),
         new("PlatformSupport", "Support and logging access", RoleScope.Platform,
             new[] { "platform.logs.view", "platform.support.impersonate", "platform.auth.users.view" }),
-        new("PlatformDev", "Developer tools and TCC maintenance", RoleScope.Platform,
-            new[] { "platform.parameters.manage", "platform.tcc.manage", "platform.auth.users.view",
+        new("PlatformDev", "Developer tools and maintenance", RoleScope.Platform,
+            new[] { "platform.parameters.manage", "platform.auth.users.view",
                     // Umbrella + granular (backward compat — existing PlatformDev users retain full infra power)
                     "platform.infra.manage", "platform.infra.logs.view",
                     "platform.infra.view", "platform.infra.files.read", "platform.infra.files.write",
@@ -87,7 +87,7 @@ public static class AuthSeeder {
             new[] {
                 "tenant.parameters.manage",
                 "tenant.security.manage",
-                "tenant.layout.manage", "tenant.robots.manage", "tenant.tcc.manage", "tenant.branch.manage",
+                "tenant.layout.manage", "tenant.robots.manage", "tenant.branch.manage",
                 "tenant.inventory.view", "tenant.inventory.manage", "tenant.menu.view", "tenant.menu.manage",
                 "tenant.personnel.view", "tenant.personnel.manage",
                 "tenant.personnel.shifts.view", "tenant.personnel.shifts.manage",
@@ -161,57 +161,57 @@ public static class AuthSeeder {
     private static readonly SeedScreen[] Screens =
     {
         new("console-admin", "/notifications", "Notifications", "Template tabanli bildirim gonderimi ve izleme", new[] { "tenant.notifications.view" }, "/notifications", "bell", "Core", 87),
-        // tc-ops-ui – temel paneller
-        new("tc-ops-ui", "overview", "Ops Overview", "Operasyon genel bakış ve KPI'lar", Array.Empty<string>(), "/operations", "layout-dashboard", "Core", 10),
-        new("tc-ops-ui", "barista", "Barista", "Barista kontrol paneli", Array.Empty<string>(), "/operations", "shopping-bag", "Core", 20),
-        new("tc-ops-ui", "transporter", "Transporter", "Transporter kuyruk görüntüleme", Array.Empty<string>(), "/operations", "truck", "Core", 30),
-        new("tc-ops-ui", "robot-sim", "Robot Sim", "Robot simülasyon paneli", new[] { "tenant.robots.manage" }, "/operations", "bot", "Core", 40),
-        new("tc-ops-ui", "courier", "Courier", "Kurye görevleri ve harita", Array.Empty<string>(), "/operations", "shopping-cart", "Core", 50),
-        new("tc-ops-ui", "notifications", "Notifications", "Bildirim listesi", Array.Empty<string>(), "/operations", "bell", "Core", 60),
+        // continuo-ops-ui – temel paneller
+        new("continuo-ops-ui", "overview", "Ops Overview", "Operasyon genel bakış ve KPI'lar", Array.Empty<string>(), "/operations", "layout-dashboard", "Core", 10),
+        new("continuo-ops-ui", "barista", "Barista", "Barista kontrol paneli", Array.Empty<string>(), "/operations", "shopping-bag", "Core", 20),
+        new("continuo-ops-ui", "transporter", "Transporter", "Transporter kuyruk görüntüleme", Array.Empty<string>(), "/operations", "truck", "Core", 30),
+        new("continuo-ops-ui", "robot-sim", "Robot Sim", "Robot simülasyon paneli", new[] { "tenant.robots.manage" }, "/operations", "bot", "Core", 40),
+        new("continuo-ops-ui", "courier", "Courier", "Kurye görevleri ve harita", Array.Empty<string>(), "/operations", "shopping-cart", "Core", 50),
+        new("continuo-ops-ui", "notifications", "Notifications", "Bildirim listesi", Array.Empty<string>(), "/operations", "bell", "Core", 60),
 
-        // tc-ops-ui – modüller
-        new("tc-ops-ui", "ml", "ML Tanımları", "Model envanteri ve training tetikleme", new[] { "ops.ml.configure" }, "/operations", "flask", "Modules", 110),
-        new("tc-ops-ui", "parameters", "Parametre Yönetimi", "Platform parametreleri ve sürüm yönetimi", new[] { "ops.parameters.write" }, "/operations", "settings", "Modules", 120),
-        new("tc-ops-ui", "public-web", "Public Web API", "Metinler ve kampanya kopyaları", new[] { "ops.public-web.manage" }, "/operations", "globe", "Modules", 130),
-        new("tc-ops-ui", "users", "Platform Kullanıcıları", "Platform kullanıcılarını ve credential'larını yönet", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 140),
-        new("tc-ops-ui", "roles", "Platform Roller & Ekranlar", "Platform rol/screen yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 150),
-        new("tc-ops-ui", "ops-roles", "Operasyon Roller", "Rol ve credential eşleşmeleri", new[] { "ops.roles.manage" }, "/operations", "shield", "Modules", 160),
-        new("tc-ops-ui", "tenant-users", "Tenant Kullanıcıları", "Tenant kullanıcıları için credential ve rol atama", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 170),
-        new("tc-ops-ui", "tenant-roles", "Tenant Roller & Ekranlar", "Tenant rollerini ve console-admin ekran yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 180),
-        new("tc-ops-ui", "layouts", "Tenant Layouts", "Kiosk/table layoutları ve tema ayarları", new[] { "ops.layouts.manage" }, "/operations", "layout-template", "Modules", 190),
-        new("tc-ops-ui", "robot-tasks", "Robot Tasks", "Robot task taslakları ve robot atamaları", new[] { "ops.layouts.manage" }, "/operations", "bot", "Modules", 195),
-        new("tc-ops-ui", "analytics", "Tenant Analitikleri", "Satış ve başarı oranı raporları", new[] { "ops.analytics.view" }, "/operations", "activity", "Modules", 200),
-        new("tc-ops-ui", "screen-admin", "Ekran Yetkilendirme", "Ekran erişimlerini yönet", new[] { "platform.auth.screens.manage" }, "/operations", "shield", "Modules", 210),
-        new("tc-ops-ui", "security", "Security Tanımları", "Gizli bilgi tanımları (credential, connection string, key)", new[] { "platform.security.manage" }, "/operations", "key-round", "Modules", 220),
-        new("tc-ops-ui", "docs-tracking", "Doküman İzleme", "Tenant ve platform dökümanlarını izleme", new[] { "ops.docs.view" }, "/operations", "file-text", "Modules", 225),
+        // continuo-ops-ui – modüller
+        new("continuo-ops-ui", "ml", "ML Tanımları", "Model envanteri ve training tetikleme", new[] { "ops.ml.configure" }, "/operations", "flask", "Modules", 110),
+        new("continuo-ops-ui", "parameters", "Parametre Yönetimi", "Platform parametreleri ve sürüm yönetimi", new[] { "ops.parameters.write" }, "/operations", "settings", "Modules", 120),
+        new("continuo-ops-ui", "public-web", "Public Web API", "Metinler ve kampanya kopyaları", new[] { "ops.public-web.manage" }, "/operations", "globe", "Modules", 130),
+        new("continuo-ops-ui", "users", "Platform Kullanıcıları", "Platform kullanıcılarını ve credential'larını yönet", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 140),
+        new("continuo-ops-ui", "roles", "Platform Roller & Ekranlar", "Platform rol/screen yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 150),
+        new("continuo-ops-ui", "ops-roles", "Operasyon Roller", "Rol ve credential eşleşmeleri", new[] { "ops.roles.manage" }, "/operations", "shield", "Modules", 160),
+        new("continuo-ops-ui", "tenant-users", "Tenant Kullanıcıları", "Tenant kullanıcıları için credential ve rol atama", new[] { "platform.auth.users.manage" }, "/operations", "users", "Modules", 170),
+        new("continuo-ops-ui", "tenant-roles", "Tenant Roller & Ekranlar", "Tenant rollerini ve console-admin ekran yetkilerini yönet", new[] { "platform.auth.roles.manage" }, "/operations", "panels", "Modules", 180),
+        new("continuo-ops-ui", "layouts", "Tenant Layouts", "Kiosk/table layoutları ve tema ayarları", new[] { "ops.layouts.manage" }, "/operations", "layout-template", "Modules", 190),
+        new("continuo-ops-ui", "robot-tasks", "Robot Tasks", "Robot task taslakları ve robot atamaları", new[] { "ops.layouts.manage" }, "/operations", "bot", "Modules", 195),
+        new("continuo-ops-ui", "analytics", "Tenant Analitikleri", "Satış ve başarı oranı raporları", new[] { "ops.analytics.view" }, "/operations", "activity", "Modules", 200),
+        new("continuo-ops-ui", "screen-admin", "Ekran Yetkilendirme", "Ekran erişimlerini yönet", new[] { "platform.auth.screens.manage" }, "/operations", "shield", "Modules", 210),
+        new("continuo-ops-ui", "security", "Security Tanımları", "Gizli bilgi tanımları (credential, connection string, key)", new[] { "platform.security.manage" }, "/operations", "key-round", "Modules", 220),
+        new("continuo-ops-ui", "docs-tracking", "Doküman İzleme", "Tenant ve platform dökümanlarını izleme", new[] { "ops.docs.view" }, "/operations", "file-text", "Modules", 225),
 
-        // tc-ops-ui – tenant paket+modül entitlement (Phase 1-6, plan: TENANT_PACKAGES_AND_MODULES_PLAN.md)
-        new("tc-ops-ui", "tenant-modules", "Modül Kataloğu", "Platform modül tanımları, kategori, bağımlılık ve add-on fiyatları",
+        // continuo-ops-ui – tenant paket+modül entitlement (Phase 1-6, plan: TENANT_PACKAGES_AND_MODULES_PLAN.md)
+        new("continuo-ops-ui", "tenant-modules", "Modül Kataloğu", "Platform modül tanımları, kategori, bağımlılık ve add-on fiyatları",
             new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 230),
-        new("tc-ops-ui", "tenant-packages", "Paket Kataloğu", "Satış paketleri — tier, dahil modüller, multi-currency fiyat",
+        new("continuo-ops-ui", "tenant-packages", "Paket Kataloğu", "Satış paketleri — tier, dahil modüller, multi-currency fiyat",
             new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 240),
-        new("tc-ops-ui", "plan-discounts", "İskonto & Kampanyalar", "Tenant-bazlı veya global indirim/kupon yönetimi",
+        new("continuo-ops-ui", "plan-discounts", "İskonto & Kampanyalar", "Tenant-bazlı veya global indirim/kupon yönetimi",
             new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 250),
-        new("tc-ops-ui", "tenant-entitlements", "Tenant Paket & Modül Atamaları", "Her tenantta hangi paket aktif, hangi modüller etkin, hangi iskontolar uygulanıyor",
+        new("continuo-ops-ui", "tenant-entitlements", "Tenant Paket & Modül Atamaları", "Her tenantta hangi paket aktif, hangi modüller etkin, hangi iskontolar uygulanıyor",
             new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 260),
-        new("tc-ops-ui", "tenant-create", "Yeni Tenant Sihirbazı", "Tek noktada tenant bootstrap akışı — kimlik, paket, modüller, fiyat ve ödeme adımlarıyla provision talebi oluşturur",
+        new("continuo-ops-ui", "tenant-create", "Yeni Tenant Sihirbazı", "Tek noktada tenant bootstrap akışı — kimlik, paket, modüller, fiyat ve ödeme adımlarıyla provision talebi oluşturur",
             new[] { "ops.catalog.manage" }, "/operations", "sparkles", "Catalog", 265),
-        new("tc-ops-ui", "provision-requests", "Provision Onayları", "Public signup + ops manuel tenant talepleri, manuel görev checklist'i ve admin onay paneli",
+        new("continuo-ops-ui", "provision-requests", "Provision Onayları", "Public signup + ops manuel tenant talepleri, manuel görev checklist'i ve admin onay paneli",
             new[] { "ops.catalog.manage" }, "/operations", "tags", "Catalog", 270),
-        new("tc-ops-ui", "billing-invoices", "Faturalar & Tahsilat", "Platform abonelik faturaları, ödeme işaretleme, IBAN EFT mutabakat",
+        new("continuo-ops-ui", "billing-invoices", "Faturalar & Tahsilat", "Platform abonelik faturaları, ödeme işaretleme, IBAN EFT mutabakat",
             new[] { "ops.billing.manage" }, "/operations", "tags", "Catalog", 280),
-        new("tc-ops-ui", "payment-provider-settings", "Ödeme Entegrasyonları", "Platform ve tenant başına IBAN / Iyzico ödeme sağlayıcı ayarları. Sırlar security-api'de.",
+        new("continuo-ops-ui", "payment-provider-settings", "Ödeme Entegrasyonları", "Platform ve tenant başına IBAN / Iyzico ödeme sağlayıcı ayarları. Sırlar security-api'de.",
             new[] { "ops.billing.manage" }, "/operations", "wallet", "Catalog", 285),
-        new("tc-ops-ui", "platform-ops", "Platform Ops Paneli", "Tenant filo watchlist, MRR, modül adopsiyon, risk + onay durumu (cross-tenant)",
+        new("continuo-ops-ui", "platform-ops", "Platform Ops Paneli", "Tenant filo watchlist, MRR, modül adopsiyon, risk + onay durumu (cross-tenant)",
             new[] { "ops.dashboard.platform.view" }, "/operations", "layout-dashboard", "Platform", 290),
         // ScreenKey, operations workbench panel id'siyle (platform-agreements) eşleşmeli:
-        // tc-ops-ui sidebar nav item'ları page.tsx'te panelIds.has(item.id)'e göre
+        // continuo-ops-ui sidebar nav item'ları page.tsx'te panelIds.has(item.id)'e göre
         // filtreleniyor (NavigationItem.Id = ScreenKey). Önceki ScreenKey "/operations/agreements"
         // bir panel id'si olmadığı için item sessizce eleniyor ve menüde hiç görünmüyordu;
         // panel sadece direct-URL ile erişilebiliyordu. Path da /operations'a alındı → panel
         // diğerleri gibi sekme olarak açılır. (Eski "/operations/agreements" screen satırı
         // EnsureScreensAsync prune etmediği için DB'de orphan kalır ama zaten görünmüyordu.)
-        new("tc-ops-ui", "platform-agreements", "Platform Sözleşmeleri", "Signup/login sırasında müşteriye gösterilen platform sözleşmeleri (Hizmet Abonelik, KVKK, Kullanım Koşulları, Pazarlama) — markdown editör, token render ve versiyonlama",
+        new("continuo-ops-ui", "platform-agreements", "Platform Sözleşmeleri", "Signup/login sırasında müşteriye gösterilen platform sözleşmeleri (Hizmet Abonelik, KVKK, Kullanım Koşulları, Pazarlama) — markdown editör, token render ve versiyonlama",
             new[] { "platform.agreements.manage" }, "/operations", "file-text", "Platform", 295),
 
         // console-admin – tenant admin ekranları

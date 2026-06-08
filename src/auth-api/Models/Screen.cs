@@ -4,7 +4,7 @@ namespace AuthApi.Models;
 
 public class Screen {
     public Ulid Id { get; set; } = Ulid.NewUlid();
-    public string AppCode { get; set; } = "tc-ops-ui";
+    public string AppCode { get; set; } = "continuo-ops-ui";
     public string ScreenKey { get; set; } = default!;
     public string Title { get; set; } = default!;
     public string? Description { get; set; }

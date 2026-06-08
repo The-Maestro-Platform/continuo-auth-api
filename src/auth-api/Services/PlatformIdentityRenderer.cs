@@ -8,7 +8,7 @@ namespace AuthApi.Services;
 /// Resolves <c>{{token}}</c> placeholders inside agreement bodies against the
 /// current <see cref="PlatformIdentity"/> and per-agreement metadata. Used by
 /// the public <c>GET /auth/platform-agreements/active</c> endpoint and by the
-/// tc-ops-ui editor preview (which calls a separate render endpoint).
+/// continuo-ops-ui editor preview (which calls a separate render endpoint).
 /// <para>
 /// Mustache-light: only <c>{{ name }}</c> is recognised, no logic, no
 /// partials. Unknown tokens are left as-is so operators can quickly notice
@@ -34,7 +34,7 @@ public static class PlatformIdentityRenderer {
         });
     }
 
-    /// <summary>The canonical token catalog — exposed so tc-ops-ui can list
+    /// <summary>The canonical token catalog — exposed so continuo-ops-ui can list
     /// the available tokens to operators inside the editor cheat-sheet.</summary>
     public static IReadOnlyList<TokenDescriptor> TokenCatalog { get; } = new[] {
         new TokenDescriptor("companyName",      "Şirket Ticari Adı",  "Kısa ticari ad, örn. \"Continuo\""),

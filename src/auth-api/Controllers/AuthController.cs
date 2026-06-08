@@ -612,10 +612,8 @@ public class AuthController : ControllerBase {
     /// facing app'ler ayri kurallarla degerlendirilir.
     /// </summary>
     private static readonly HashSet<string> PlatformOnlyApps = new(StringComparer.OrdinalIgnoreCase) {
-        "tc-ops-ui",
+        "continuo-ops-ui",
         "dev-support-console",
-        "tcc-ops-ui",
-        "tcc-ui"
     };
 
     private static readonly HashSet<string> CustomerFacingApps = new(StringComparer.OrdinalIgnoreCase) {
@@ -629,7 +627,7 @@ public class AuthController : ControllerBase {
     /// Login isteğinde URL ve hedef UI app context'ine göre kim girebilir kararı.
     ///
     /// Kurallar (X-Client-App + X-Tenant-Slug + X-Env-Prefix tabanlı):
-    /// - Platform-only app (tc-ops-ui, dev-support-console, vs.) → her ortamda
+    /// - Platform-only app (continuo-ops-ui, dev-support-console, vs.) → her ortamda
     ///   yalnızca PlatformUser. Tenant/Customer reddedilir.
     /// - Tenant admin app (console-admin):
     ///   * X-Tenant-Slug yok (env-master URL gibi) → yalnız PlatformUser.
@@ -671,7 +669,7 @@ public class AuthController : ControllerBase {
         var isPlatformOnlyApp = !string.IsNullOrEmpty(clientApp) && PlatformOnlyApps.Contains(clientApp);
         var isCustomerFacingApp = !string.IsNullOrEmpty(clientApp) && CustomerFacingApps.Contains(clientApp);
 
-        // 1) Platform-only app (tc-ops-ui, dev-support-console, …) → PlatformUser only,
+        // 1) Platform-only app (continuo-ops-ui, dev-support-console, …) → PlatformUser only,
         //    ortam fark etmez. Tenant/Customer reddedilir.
         if (isPlatformOnlyApp) {
             if (credential.OwnerType == CredentialOwnerType.PlatformUser) {

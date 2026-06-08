@@ -49,7 +49,7 @@ public class PlatformAgreementsController : ControllerBase {
     }
 
     // ------------------------------------------------------------------
-    // Admin (tc-ops-ui) — requires platform.agreements.manage permission.
+    // Admin (continuo-ops-ui) — requires platform.agreements.manage permission.
     // PlatformOwner/PlatformAdmin role check is left as a defense-in-depth
     // backup; permission-driven is the primary gate.
     // ------------------------------------------------------------------

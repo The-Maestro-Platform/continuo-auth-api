@@ -164,7 +164,7 @@ WHERE NOT EXISTS (SELECT 1 FROM [aut].[Permissions] p WHERE p.[Key] = v.[Key]);
 ");
 
             // Platform-level legal agreements (KVKK / Kullanım Koşulları /
-            // Pazarlama). tc-ops-ui Agreements panel + mobile/web consent UI.
+            // Pazarlama). continuo-ops-ui Agreements panel + mobile/web consent UI.
             // Same idempotent DDL pattern — entity mapped in AuthDbContext,
             // permanent migration to be generated in a follow-up pass.
             await db.Database.ExecuteSqlRawAsync(@"
@@ -220,7 +220,7 @@ BEGIN
         (N'current',
          N'Continuo',
          N'Continuo Bilişim Hizmetleri A.Ş.',
-         N'(adres tc-ops-ui''dan doldurulacak)',
+         N'(adres continuo-ops-ui''dan doldurulacak)',
          N'destek@example.local',
          N'continuo@hs01.kep.tr',
          N'+90 850 000 00 00',
@@ -280,7 +280,7 @@ using (var scope = app.Services.CreateScope()) {
 }
 
 // Platform agreements seed — idempotent, only plants defaults when no
-// active row exists for a Code; existing edits via tc-ops-ui survive.
+// active row exists for a Code; existing edits via continuo-ops-ui survive.
 using (var scope = app.Services.CreateScope()) {
     try {
         var ctx = scope.ServiceProvider.GetRequiredService<AuthDbContext>();

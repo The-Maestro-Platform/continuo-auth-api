@@ -59,7 +59,7 @@ public class PlatformIdentityService {
         row ??= new PlatformIdentity {
             CompanyName = "Continuo",
             CompanyLegalName = "Continuo Bilişim Hizmetleri A.Ş.",
-            CompanyAddress = "(adres tc-ops-ui'dan doldurulacak)",
+            CompanyAddress = "(adres continuo-ops-ui'dan doldurulacak)",
             CompanyEmail = "destek@example.local",
             CompanyKep = "continuo@hs01.kep.tr",
             CompanyPhone = "+90 850 000 00 00",

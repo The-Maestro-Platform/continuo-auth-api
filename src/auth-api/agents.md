@@ -48,7 +48,7 @@
 
 ## Adding a New UI Screen End-to-End
 
-> Use this checklist when introducing a new screen in any client app (`dev-support-console`, `console-admin`, `tc-ops-ui`, etc.). Skipping a step typically results in: screen not in nav menu, "Permission'lara yazınca hiç bir şey gelmiyor" in Roller & Ekranlar, or backend endpoints returning 403/401 even though the user "should" have access. All four pieces must land together.
+> Use this checklist when introducing a new screen in any client app (`dev-support-console`, `console-admin`, `continuo-ops-ui`, etc.). Skipping a step typically results in: screen not in nav menu, "Permission'lara yazınca hiç bir şey gelmiyor" in Roller & Ekranlar, or backend endpoints returning 403/401 even though the user "should" have access. All four pieces must land together.
 
 ### Step 1 — Frontend route + component
 - Create the page under `ui/apps/<app-name>/app/<route-path>/page.tsx` (Next.js App Router).

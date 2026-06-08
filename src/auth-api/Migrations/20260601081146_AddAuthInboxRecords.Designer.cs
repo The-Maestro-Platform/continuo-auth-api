@@ -672,7 +672,7 @@ namespace authapi.Migrations
                         new
                         {
                             Key = "platform.metronome.manage",
-                            Description = "Create / edit / disable platform-scope Metronome scheduled jobs. Required to access the tc-ops-ui Metronome panel and define cross-tenant operational jobs.",
+                            Description = "Create / edit / disable platform-scope Metronome scheduled jobs. Required to access the continuo-ops-ui Metronome panel and define cross-tenant operational jobs.",
                             DisplayName = "Manage Scheduled Jobs (Metronome)",
                             Scope = 0,
                             SortOrder = 0
@@ -680,7 +680,7 @@ namespace authapi.Migrations
                         new
                         {
                             Key = "platform.tempo.manage",
-                            Description = "Author / edit / disable platform-scope Tempo workflow definitions and view all instances across tenants. Required for the tc-ops-ui Tempo panel.",
+                            Description = "Author / edit / disable platform-scope Tempo workflow definitions and view all instances across tenants. Required for the continuo-ops-ui Tempo panel.",
                             DisplayName = "Manage Workflows (Tempo)",
                             Scope = 0,
                             SortOrder = 0
@@ -704,7 +704,7 @@ namespace authapi.Migrations
                         new
                         {
                             Key = "platform.agreements.manage",
-                            Description = "Edit and version the platform-level legal agreements (KVKK Aydınlatma, Kullanım Koşulları, Pazarlama İzni) shown to customers at signup/login. tc-ops-ui Agreements panel + auth-api admin CRUD endpoints.",
+                            Description = "Edit and version the platform-level legal agreements (KVKK Aydınlatma, Kullanım Koşulları, Pazarlama İzni) shown to customers at signup/login. continuo-ops-ui Agreements panel + auth-api admin CRUD endpoints.",
                             DisplayName = "Manage Legal Agreements",
                             Scope = 0,
                             SortOrder = 0
