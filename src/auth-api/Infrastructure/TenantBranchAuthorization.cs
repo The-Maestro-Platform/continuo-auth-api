@@ -3,17 +3,6 @@ using Continuo.Shared.Security;
 
 namespace AuthApi.Infrastructure;
 
-public readonly record struct TenantBranchActorScope(
-    bool IsPlatformBypass,
-    bool IsOwnerBypass,
-    bool IsConsoleAdminRequest,
-    string? TenantCode,
-    IReadOnlySet<string> TenantCodes,
-    IReadOnlySet<string> BranchCodes) {
-    public bool RequiresTenantScope => IsConsoleAdminRequest && !IsOwnerBypass;
-    public bool RequiresBranchScope => IsConsoleAdminRequest && !IsOwnerBypass;
-}
-
 public static class TenantBranchAuthorization {
     // Platform-level actors may cross tenant boundaries (manage any tenant's users/roles).
     private static readonly PlatformRole[] PlatformBypassRoles = { PlatformRole.PlatformOwner, PlatformRole.PlatformAdmin };
@@ -65,29 +54,13 @@ public static class TenantBranchAuthorization {
             BranchCodes: branchCodes);
     }
 
-    public static string? NormalizeTenantCode(string? value) {
-        if (string.IsNullOrWhiteSpace(value)) {
-            return null;
-        }
+    public static string? NormalizeTenantCode(string? value) => TenantBranchNormalizers.NormalizeTenantCode(value);
 
-        return value.Trim().ToLowerInvariant();
-    }
+    public static string? NormalizeBranchCode(string? value) => TenantBranchNormalizers.NormalizeBranchCode(value);
 
-    public static string? NormalizeBranchCode(string? value) {
-        if (string.IsNullOrWhiteSpace(value)) {
-            return null;
-        }
+    public static bool IsTenantMatch(string? left, string? right) => TenantBranchNormalizers.IsTenantMatch(left, right);
 
-        return value.Trim().ToLowerInvariant();
-    }
-
-    public static bool IsTenantMatch(string? left, string? right) {
-        return TenantResolution.IsTenantMatch(left, right);
-    }
-
-    public static bool IsBranchMatch(string? left, string? right) {
-        return TenantResolution.IsBranchMatch(left, right);
-    }
+    public static bool IsBranchMatch(string? left, string? right) => TenantBranchNormalizers.IsBranchMatch(left, right);
 
     public static bool IsBranchAllowed(TenantBranchActorScope scope, string? branchCode, bool rejectEmptyCodes = true) {
         if (scope.IsOwnerBypass) {
